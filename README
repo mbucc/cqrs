@@ -1,0 +1,7 @@
+cqrs-sample-app
+since: Sun Nov 30 14:29:50 EST 2014
+
+Transation of the CQRS starter kit [1], created by Edument,
+into Go.
+
+[1] http://github.com/edumentab/cqrs-starter-kit
