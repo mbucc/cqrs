@@ -4,9 +4,11 @@
 
 	All validations and data updates occur as a result of a
 	command that is accepted.  A command never returns data.
-	Data is always returned by a Query.  Queries either can hit
-	the database directly or listen to events emitted by a
-	successful Command.
+
+	Returning data is the responsibility of a query.  A query
+	can either hit the database directly or listen to events
+	emitted by a successful command and maintain their own
+	view-specific data set to query.
 
 Since : Sun Nov 30 20:42:18 EST 2014
 Author: Mark Bucciarelli <mkbucc@gmail.com>
