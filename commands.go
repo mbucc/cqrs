@@ -19,14 +19,6 @@ package main
 
 import "github.com/twinj/uuid"
 
-// XXX: The OrderedItem type doesn't belongs here.
-type OrderedItem struct {
-	MenuNumber  int
-	Description string
-	IsDrink     bool
-	Price       float64
-}
-
 type Command interface {
 	Id() string
 }
