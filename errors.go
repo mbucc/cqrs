@@ -1,3 +1,10 @@
+/*
+	Reasons why commands are rejected.
+
+Since: Sun Nov 30 20:57:50 EST 2014
+Author: Mark Bucciarelli <mkbucc@gmail.com>
+
+*/
 package main
 
 type TabNotOpen int
