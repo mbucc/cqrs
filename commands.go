@@ -28,15 +28,15 @@ type OrderedItem struct {
 }
 
 type Command interface {
-	Id() uuid.UUID
+	Id() string
 }
 
 type BaseCommand struct {
 	id uuid.UUID
 }
 
-func (c *BaseCommand) Id() uuid.UUID {
-	return c.id
+func (c *BaseCommand) Id() string {
+	return c.id.String()
 }
 
 type CloseTab struct {
