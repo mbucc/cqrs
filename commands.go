@@ -20,7 +20,7 @@ type OrderedItem struct {
 	MenuNumber  int
 	Description string
 	IsDrink     bool
-	Price       decimal
+	Price       float64
 }
 
 type Command interface {
