@@ -15,6 +15,8 @@ Author: Mark Bucciarelli <mkbucc@gmail.com>
 
 package main
 
+import "github.com/twinj/uuid"
+
 // XXX: The OrderedItem type doesn't belongs here.
 type OrderedItem struct {
 	MenuNumber  int
@@ -24,14 +26,14 @@ type OrderedItem struct {
 }
 
 type Command interface {
-	Id() Guid
+	Id() uuid.UUID
 }
 
 type BaseCommand struct {
-	id Guid
+	id uuid.UUID
 }
 
-func (c *BaseCommand) Id() Guid {
+func (c *BaseCommand) Id() uuid.UUID {
 	return c.id
 }
 
