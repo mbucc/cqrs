@@ -15,9 +15,7 @@ type Command interface{}
 
 // An event is something that actually happens.
 // and are triggered by commands.
-// For example, ASlapInTheFace is a possible
-// event that might be triggered
-// by the MoreDrinksWench! command.
+// For example, FaceSlapped.
 type Event interface{}
 
 // Command handlers are responsible
