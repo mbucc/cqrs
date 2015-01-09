@@ -1,32 +1,32 @@
 package main
 
 type CloseTab struct {
-	Id		TabId
+	Id         TabId
 	AmountPaid float64
 }
 
 type MarkDrinksServed struct {
-	Id		TabId
+	Id          TabId
 	MenuNumbers []int
 }
 
 type MarkFoodPrepared struct {
-	Id		TabId
+	Id          TabId
 	MenuNumbers []int
 }
 
 type MarkFoodServed struct {
-	Id		TabId
+	Id          TabId
 	MenuNumbers []int
 }
 
 type OpenTab struct {
-	Id		TabId
+	Id          TabId
 	TableNumber int
 	Waiter      string
 }
 
 type PlaceOrder struct {
-	Id		TabId
+	Id    TabId
 	Items []OrderedItem
 }

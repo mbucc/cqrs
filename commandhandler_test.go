@@ -1,22 +1,22 @@
 package main_test
 
 import (
-    "testing"
-    . "github.com/mbucc/cqrs-sample-app"
-    . "github.com/smartystreets/goconvey/convey"
+	. "github.com/mbucc/cqrs-sample-app"
+	. "github.com/smartystreets/goconvey/convey"
+	"testing"
 )
 
 type ShoutOut struct {
-	Id		TabId
+	Id      TabId
 	Comment string
 }
 
 type HeardIt struct {
-	Id		TabId
-	Something	string
+	Id        TabId
+	Something string
 }
 
-type ShoutHandler struct {}
+type ShoutHandler struct{}
 
 func (eh *ShoutHandler) handle(c *ShoutOut) (e []Event, err error) {
 	e = make([]Event, 1)
@@ -24,12 +24,10 @@ func (eh *ShoutHandler) handle(c *ShoutOut) (e []Event, err error) {
 	return
 }
 
-
-
 func TestEchoCommand(t *testing.T) {
 	Convey("Given a shout out and a shout out handler", t, func() {
 		shout := ShoutOut{1, "ab"}
-		h := ShoutHandler{};
+		h := ShoutHandler{}
 
 		Convey("When the shout out is handled", func() {
 
