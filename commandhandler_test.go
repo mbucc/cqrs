@@ -33,7 +33,7 @@ func TestEchoCommand(t *testing.T) {
 
 			rval, _ := h.handle(&shout)
 
-			Convey("It should return two events", func() {
+			Convey("It should return one event", func() {
 
 				So(len(rval), ShouldEqual, 1)
 			})
