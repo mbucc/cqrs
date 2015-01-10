@@ -3,20 +3,27 @@
 // I wanted to learn about command/query separation.
 package main
 
-// A TabId represents a tab, or bill, at a cafe table.
-type TabId int
+// In the Edument sample app,
+// each tab defines a distinct aggregate instance
+// and all commands and events associated with that tab
+// use the same id.
+type AggregateId int
 
 // A command is an action
 // that can be accepted or rejected
 // for example, MoreDrinksWench!
 // might be a command in a medieval
 // misogynistic kind of cafe.
-type Command interface{}
+type Command interface{
+	Id()  AggregateId
+}
 
 // An event is something that happened
 // as a result of a command;
 // for example, FaceSlapped.
-type Event interface{}
+type Event interface{
+	Id()	AggregateId
+}
 
 // Command handlers are responsible
 // for validating commands,
@@ -26,5 +33,5 @@ type Event interface{}
 // lots of undefined terms here ...
 // see the github wiki).
 type CommandHandler interface {
-	handle(c *Command) (e []Event)
+	handle(c *Command) (e []Event, err error)
 }

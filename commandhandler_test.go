@@ -7,21 +7,25 @@ import (
 )
 
 type ShoutOut struct {
-	Id      TabId
+	id      AggregateId
 	Comment string
 }
 
 type HeardIt struct {
-	Id        TabId
+	id        AggregateId
 	Something string
+}
+
+func (e *HeardIt) Id() AggregateId {
+	return e.id
 }
 
 type ShoutOutHandler struct{}
 
-func (eh *ShoutOutHandler) handle(c *ShoutOut) (e []Event, err error) {
-	e = make([]Event, 1)
-	e[0] = HeardIt{c.Id, c.Comment}
-	return
+func (eh *ShoutOutHandler) handle(c *ShoutOut) (a []Event, err error) {
+	a = make([]Event, 1)
+	a[0] = &HeardIt{c.id, c.Comment}
+	return a, nil
 }
 
 func TestHandledCommandReturnsEvents(t *testing.T) {
