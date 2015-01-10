@@ -16,18 +16,18 @@ type HeardIt struct {
 	Something string
 }
 
-type ShoutHandler struct{}
+type ShoutOutHandler struct{}
 
-func (eh *ShoutHandler) handle(c *ShoutOut) (e []Event, err error) {
+func (eh *ShoutOutHandler) handle(c *ShoutOut) (e []Event, err error) {
 	e = make([]Event, 1)
 	e[0] = HeardIt{c.Id, c.Comment}
 	return
 }
 
-func TestEchoCommand(t *testing.T) {
+func TestHandledCommandReturnsEvents(t *testing.T) {
 	Convey("Given a shout out and a shout out handler", t, func() {
 		shout := ShoutOut{1, "ab"}
-		h := ShoutHandler{}
+		h := ShoutOutHandler{}
 
 		Convey("When the shout out is handled", func() {
 
