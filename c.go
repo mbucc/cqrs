@@ -33,5 +33,5 @@ type Event interface{
 // lots of undefined terms here ...
 // see the github wiki).
 type CommandHandler interface {
-	handle(c *Command) (e []Event, err error)
+	handle(c Command) (e []Event, err error)
 }
