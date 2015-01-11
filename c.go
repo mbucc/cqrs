@@ -14,24 +14,13 @@ type AggregateId int
 // for example, MoreDrinksWench!
 // might be a command in a medieval
 // misogynistic kind of cafe.
-type Command interface{
-	Id()  AggregateId
+type Command interface {
+	Id() AggregateId
 }
 
 // An event is something that happened
 // as a result of a command;
 // for example, FaceSlapped.
-type Event interface{
-	Id()	AggregateId
-}
-
-// Command handlers are responsible
-// for validating commands,
-// both as a stand-alone set of data
-// as well as in the context
-// of the Command's aggregate (I know,
-// lots of undefined terms here ...
-// see the github wiki).
-type CommandHandler interface {
-	handle(c Command) (e []Event, err error)
+type Event interface {
+	Id() AggregateId
 }

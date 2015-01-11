@@ -14,7 +14,6 @@ func (c *ShoutOut) Id() AggregateId {
 	return c.id
 }
 
-
 type HeardIt struct {
 	id        AggregateId
 	Something string
@@ -52,19 +51,13 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 	})
 }
 
-func TestAddHandlerFor(t *testing.T) {
+func TestOnlyOneHandlerPerCommand(t *testing.T) {
 
-	Convey("Given a message dispatcher and ShoutOut handler", t, func() {
-		md := new(MessageDispatcher)
-
-		Convey("When we register it as a handler for a ShoutOut command", func() {
-
-			md.AddHandlerFor(new(ShoutOut), new(ShoutOutHandler))
-
-			Convey("We can dispatch a ShoutOut event", func() {
-				err := md.SendCommand(&ShoutOut{1, "Yo, Adrian!"})
-				So(err, ShouldEqual, nil)
-			})
-		})
+	Convey("You can't register two handlers for the same command", t, func() {
+		handlers := []HandlerPair{
+				HandlerPair{new(ShoutOut), nil},
+				HandlerPair{new(ShoutOut), nil}}
+		_, err := NewMessageDispatcher(handlers)
+		So(err, ShouldEqual, nil)
 	})
 }
