@@ -30,8 +30,8 @@ type messageDispatcher struct {
 	handlers map[Command]CommandHandler
 }
 
-func (md *messageDispatcher) SendCommand(c Command) error {
-	return nil
+func (md *messageDispatcher) SendCommand(c Command) ([]Event, error) {
+	return nil, nil
 }
 
 func NewMessageDispatcher(handlers []HandlerPair) (*messageDispatcher, error) {
