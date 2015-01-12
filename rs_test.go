@@ -2,6 +2,7 @@ package main
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
+	"reflect"
 	"testing"
 )
 
@@ -55,18 +56,18 @@ func TestOnlyOneHandlerPerCommand(t *testing.T) {
 
 	Convey("You can't register two handlers for the same command", t, func() {
 		handlers := []HandlerPair{
-			HandlerPair{new(ShoutOut), nil},
-			HandlerPair{new(ShoutOut), nil}}
+			HandlerPair{reflect.TypeOf(new(ShoutOut)), nil},
+			HandlerPair{reflect.TypeOf(new(ShoutOut)), nil}}
 		_, err := NewMessageDispatcher(handlers)
-		So(err, ShouldEqual, nil)
+		So(err, ShouldNotEqual, nil)
 	})
 }
 
 func TestSendCommand(t *testing.T) {
 
-	Convey("Given a dispatcher that sends ShoutOut's to a EchoHandler", t, func() {
+	Convey("Given a dispatcher that sends ShoutOuts to an EchoHandler", t, func() {
 		handlers := []HandlerPair{
-			HandlerPair{new(ShoutOut), new(EchoHandler)}}
+			HandlerPair{reflect.TypeOf(new(ShoutOut)), new(EchoHandler)}}
 		md, err := NewMessageDispatcher(handlers)
 		So(err, ShouldEqual, nil)
 
