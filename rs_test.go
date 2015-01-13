@@ -52,23 +52,12 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 	})
 }
 
-func TestOnlyOneHandlerPerCommand(t *testing.T) {
-
-	Convey("You can't register two handlers for the same command", t, func() {
-		handlers := []HandlerPair{
-			HandlerPair{reflect.TypeOf(new(ShoutOut)), nil},
-			HandlerPair{reflect.TypeOf(new(ShoutOut)), nil}}
-		_, err := NewMessageDispatcher(handlers)
-		So(err, ShouldNotEqual, nil)
-	})
-}
-
 func TestSendCommand(t *testing.T) {
 
 	Convey("Given a dispatcher that sends ShoutOuts to an EchoHandler", t, func() {
-		handlers := []HandlerPair{
-			HandlerPair{reflect.TypeOf(new(ShoutOut)), new(EchoHandler)}}
-		md, err := NewMessageDispatcher(handlers)
+		registry := HandlerRegistry{
+			reflect.TypeOf(new(ShoutOut)): new(EchoHandler)}
+		md, err := NewMessageDispatcher(registry)
 		So(err, ShouldEqual, nil)
 
 		Convey("Sending a ShoutOut should return a single HeardIt event", func() {
