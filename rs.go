@@ -43,7 +43,7 @@ func (md *messageDispatcher) SendCommand(c Command) ([]Event, error) {
 // Since events represent a thing that actually happened,
 // a fact, having an event listener return an error
 // is probably not the right thing to do.
-// While errors can certainly occor,
+// While errors can certainly occur,
 // for example, email server or database is down
 // or the file system is full,
 // a better approach would be to stick the events
