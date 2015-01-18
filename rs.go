@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	//  	"log"
 )
 
 // Command handlers are responsible
@@ -69,7 +68,11 @@ func NewMessageDispatcher(hr HandlerRegistry, lr ListenerRegistry) (*messageDisp
 	for commandtype, handler := range hr {
 		m[commandtype] = handler
 	}
-	return &messageDispatcher{registry: m}, nil
+	l := make(ListenerRegistry, len(lr))
+	for eventtype, listeners := range lr {
+		l[eventtype] = listeners
+	}
+	return &messageDispatcher{registry: m, listeners: l}, nil
 }
 
 func main() {}
