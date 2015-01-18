@@ -28,7 +28,7 @@ type ListenerRegistry map[reflect.Type][]EventListener
 
 // Registers event and command listeners.  Dispatches commands.
 type messageDispatcher struct {
-	registry HandlerRegistry
+	registry  HandlerRegistry
 	listeners ListenerRegistry
 }
 
@@ -50,13 +50,13 @@ func (md *messageDispatcher) SendCommand(c Command) ([]Event, error) {
 // in a durable queue so when the error condition clears
 // the listener can successfully do it's thing.
 func (md *messageDispatcher) PublishEvent(e Event) error {
-	var err error;
+	var err error
 	t := reflect.TypeOf(e)
 	if a, ok := md.listeners[t]; ok {
 		for _, listener := range a {
 			err = listener.apply(e)
 			if err != nil {
-				return err;
+				return err
 			}
 		}
 	}

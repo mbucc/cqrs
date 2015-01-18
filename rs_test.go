@@ -1,10 +1,10 @@
 package main
 
 import (
+	. "github.com/smartystreets/goconvey/convey"
 	"log"
 	"reflect"
 	"testing"
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 var testChannel = make(chan string)
@@ -42,7 +42,6 @@ func (h *WriteToChannel) apply(e Event) error {
 	testChannel <- e.(*HeardIt).Heard
 	return nil
 }
-
 
 func TestHandledCommandReturnsEvents(t *testing.T) {
 
@@ -85,15 +84,14 @@ func TestPublishEvent(t *testing.T) {
 
 	var err0 error
 	if err0 != nil {
-		log.Panicf("can't open temp file");
+		log.Panicf("can't open temp file")
 	}
 
 	Convey("Given an echo handler and a couple SayIt listeners", t, func() {
 		listeners := ListenerRegistry{
-			reflect.TypeOf(new(HeardIt)):
-				[]EventListener{new(WriteToChannel), new(WriteToChannel)}}
+			reflect.TypeOf(new(HeardIt)): []EventListener{new(WriteToChannel), new(WriteToChannel)}}
 		registry := HandlerRegistry{
-				reflect.TypeOf(new(ShoutOut)): new(EchoHandler)}
+			reflect.TypeOf(new(ShoutOut)): new(EchoHandler)}
 		md, err := NewMessageDispatcher(registry, listeners)
 		So(err, ShouldEqual, nil)
 
@@ -110,8 +108,8 @@ func TestPublishEvent(t *testing.T) {
 			}()
 			n := 0
 			for {
-				msg, channelOpen := <- testChannel
-				if ! channelOpen {
+				msg, channelOpen := <-testChannel
+				if !channelOpen {
 					break
 				}
 				n = n + 1
