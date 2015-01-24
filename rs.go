@@ -4,16 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+//"log"
 )
 
 // In the Edument sample app
 // they combine Aggregates
 // and command handlers.
 type Aggregator interface {
-       CommandHandler
-       ApplyEvents([]Event)
+	CommandHandler
+	ApplyEvents([]Event)
 }
-
 
 type CommandProcessor func(c Command) ([]Event, error)
 type CommandProcessors map[reflect.Type]CommandProcessor
@@ -60,10 +60,11 @@ func (md *messageDispatcher) PublishEvent(e Event) error {
 
 func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStore) (*messageDispatcher, error) {
 	m := make(CommandProcessors, len(hr))
-	for commandtype, handler := range hr {
+	for commandtype, agg := range hr {
 		m[commandtype] = func(c Command) ([]Event, error) {
-			h := reflect.New(reflect.TypeOf(handler)).Elem().Interface().(Aggregator)
-			return h.handle(c)
+			a := reflect.New(reflect.TypeOf(agg)).Elem().Interface().(Aggregator)
+			a.ApplyEvents(es.LoadEventsFor(c.Id()))
+			return a.handle(c)
 		}
 	}
 	l := make(EventListeners, len(lr))
