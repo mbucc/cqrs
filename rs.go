@@ -20,7 +20,7 @@ type Aggregate struct {
 }
 
 // Maps a command to its handler.
-type CommandRegistry map[reflect.Type]CommandHandler
+type CommandRegistry map[reflect.Type]Aggregator
 
 type ListenerRegistry map[reflect.Type][]EventListener
 

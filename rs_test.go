@@ -36,6 +36,9 @@ func (eh *EchoHandler) handle(c Command) (a []Event, err error) {
 	return a, nil
 }
 
+func (eh *EchoHandler) ApplyEvents([]Event) {
+}
+
 type WriteToChannel struct{}
 
 func (h *WriteToChannel) apply(e Event) error {
