@@ -6,17 +6,6 @@ import (
 	"reflect"
 )
 
-// Command handlers are responsible
-// for validating commands,
-// both as a stand-alone set of data
-// as well as in the context
-// of the Command's aggregate (I know,
-// lots of undefined terms here ...
-// see the github wiki).
-type CommandHandler interface {
-	handle(c Command) (e []Event, err error)
-}
-
 type EventListener interface {
 	apply(e Event) error
 }
