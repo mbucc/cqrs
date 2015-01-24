@@ -6,9 +6,6 @@ import (
 	"reflect"
 )
 
-type EventListener interface {
-	apply(e Event) error
-}
 
 // Maps a command to its handler.
 type HandlerRegistry map[reflect.Type]CommandHandler

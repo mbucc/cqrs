@@ -29,10 +29,3 @@ type Command interface {
 type CommandHandler interface {
         handle(c Command) (e []Event, err error)
 }
-
-// An event is something that happened
-// as a result of a command;
-// for example, FaceSlapped.
-type Event interface {
-	Id() AggregateId
-}
