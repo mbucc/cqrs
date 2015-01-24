@@ -10,30 +10,27 @@ import (
 // they combine Aggregates
 // and command handlers.
 type Aggregator interface {
-	CommandHandler
-	ApplyEvents([]Event)
+       CommandHandler
+       ApplyEvents([]Event)
 }
 
-type Aggregate struct {
-	Id           AggregateId
-	EventsLoaded int
-}
 
-// Maps a command to its handler.
-type CommandRegistry map[reflect.Type]Aggregator
+type CommandProcessor func(c Command) ([]Event, error)
+type CommandProcessors map[reflect.Type]CommandProcessor
+type Aggregators map[reflect.Type]Aggregator
 
-type ListenerRegistry map[reflect.Type][]EventListener
+type EventListeners map[reflect.Type][]EventListener
 
 // Registers event and command listeners.  Dispatches commands.
 type messageDispatcher struct {
-	registry  CommandRegistry
-	listeners ListenerRegistry
+	handlers  CommandProcessors
+	listeners EventListeners
 }
 
 func (md *messageDispatcher) SendCommand(c Command) ([]Event, error) {
 	t := reflect.TypeOf(c)
-	if h, ok := md.registry[t]; ok {
-		return h.handle(c)
+	if processor, ok := md.handlers[t]; ok {
+		return processor(c)
 	}
 	return nil, errors.New(fmt.Sprint("No handler registered for command ", t))
 }
@@ -61,16 +58,19 @@ func (md *messageDispatcher) PublishEvent(e Event) error {
 	return nil
 }
 
-func NewMessageDispatcher(hr CommandRegistry, lr ListenerRegistry) (*messageDispatcher, error) {
-	m := make(CommandRegistry, len(hr))
+func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStore) (*messageDispatcher, error) {
+	m := make(CommandProcessors, len(hr))
 	for commandtype, handler := range hr {
-		m[commandtype] = handler
+		m[commandtype] = func(c Command) ([]Event, error) {
+			h := reflect.New(reflect.TypeOf(handler)).Elem().Interface().(Aggregator)
+			return h.handle(c)
+		}
 	}
-	l := make(ListenerRegistry, len(lr))
+	l := make(EventListeners, len(lr))
 	for eventtype, listeners := range lr {
 		l[eventtype] = listeners
 	}
-	return &messageDispatcher{registry: m, listeners: l}, nil
+	return &messageDispatcher{handlers: m, listeners: l}, nil
 }
 
 func main() {}
