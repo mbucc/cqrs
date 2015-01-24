@@ -6,15 +6,27 @@ import (
 	"reflect"
 )
 
+// In the Edument sample app
+// they combine Aggregates
+// and command handlers.
+type Aggregator interface {
+	CommandHandler
+	ApplyEvents([]Event)
+}
+
+type Aggregate struct {
+	Id           AggregateId
+	EventsLoaded int
+}
 
 // Maps a command to its handler.
-type HandlerRegistry map[reflect.Type]CommandHandler
+type CommandRegistry map[reflect.Type]CommandHandler
 
 type ListenerRegistry map[reflect.Type][]EventListener
 
 // Registers event and command listeners.  Dispatches commands.
 type messageDispatcher struct {
-	registry  HandlerRegistry
+	registry  CommandRegistry
 	listeners ListenerRegistry
 }
 
@@ -49,8 +61,8 @@ func (md *messageDispatcher) PublishEvent(e Event) error {
 	return nil
 }
 
-func NewMessageDispatcher(hr HandlerRegistry, lr ListenerRegistry) (*messageDispatcher, error) {
-	m := make(HandlerRegistry, len(hr))
+func NewMessageDispatcher(hr CommandRegistry, lr ListenerRegistry) (*messageDispatcher, error) {
+	m := make(CommandRegistry, len(hr))
 	for commandtype, handler := range hr {
 		m[commandtype] = handler
 	}

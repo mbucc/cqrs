@@ -65,7 +65,7 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 func TestSendCommand(t *testing.T) {
 
 	Convey("Given a dispatcher that sends ShoutOuts to an EchoHandler", t, func() {
-		registry := HandlerRegistry{
+		registry := CommandRegistry{
 			reflect.TypeOf(new(ShoutOut)): new(EchoHandler)}
 		md, err := NewMessageDispatcher(registry, nil)
 		So(err, ShouldEqual, nil)
@@ -90,7 +90,7 @@ func TestPublishEvent(t *testing.T) {
 	Convey("Given an echo handler and a couple SayIt listeners", t, func() {
 		listeners := ListenerRegistry{
 			reflect.TypeOf(new(HeardIt)): []EventListener{new(WriteToChannel), new(WriteToChannel)}}
-		registry := HandlerRegistry{
+		registry := CommandRegistry{
 			reflect.TypeOf(new(ShoutOut)): new(EchoHandler)}
 		md, err := NewMessageDispatcher(registry, listeners)
 		So(err, ShouldEqual, nil)

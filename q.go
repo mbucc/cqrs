@@ -10,3 +10,9 @@ type Event interface {
 type EventListener interface {
 	apply(e Event) error
 }
+
+// Persist and restore events.
+type EventStore interface {
+	LoadEventFor(AggregateId) []Event
+	SaveEventFor(AggregateId, []Event, []Event)
+}
