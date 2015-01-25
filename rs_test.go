@@ -9,40 +9,40 @@ import (
 
 var testChannel = make(chan string)
 
-type ShoutOut struct {
+type ShoutCommand struct {
 	id      AggregateId
 	Comment string
 }
 
-func (c *ShoutOut) Id() AggregateId {
+func (c *ShoutCommand) Id() AggregateId {
 	return c.id
 }
 
-type HeardIt struct {
+type HeardEvent struct {
 	id    AggregateId
 	Heard string
 }
 
-func (e *HeardIt) Id() AggregateId {
+func (e *HeardEvent) Id() AggregateId {
 	return e.id
 }
 
-type EchoHandler struct{}
+type EchoAggregate struct{}
 
-func (eh *EchoHandler) handle(c Command) (a []Event, err error) {
+func (eh *EchoAggregate) handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
-	c1 := c.(*ShoutOut)
-	a[0] = &HeardIt{c1.Id(), c1.Comment}
+	c1 := c.(*ShoutCommand)
+	a[0] = &HeardEvent{c1.Id(), c1.Comment}
 	return a, nil
 }
 
-func (eh *EchoHandler) ApplyEvents([]Event) {
+func (eh *EchoAggregate) ApplyEvents([]Event) {
 }
 
-type WriteToChannel struct{}
+type ChannelWriterEventListener struct{}
 
-func (h *WriteToChannel) apply(e Event) error {
-	testChannel <- e.(*HeardIt).Heard
+func (h *ChannelWriterEventListener) apply(e Event) error {
+	testChannel <- e.(*HeardEvent).Heard
 	return nil
 }
 
@@ -50,8 +50,8 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 
 	Convey("Given a shout out and a shout out handler", t, func() {
 
-		shout := ShoutOut{1, "ab"}
-		h := EchoHandler{}
+		shout := ShoutCommand{1, "ab"}
+		h := EchoAggregate{}
 
 		Convey("When the shout out is handled", func() {
 
@@ -70,16 +70,17 @@ func TestSendCommand(t *testing.T) {
 
 	Convey("Given an echo handler and a couple SayIt listeners", t, func() {
 		listeners := EventListeners{
-			reflect.TypeOf(new(HeardIt)): []EventListener{new(WriteToChannel), new(WriteToChannel)}}
+			reflect.TypeOf(new(HeardEvent)): []EventListener{
+				new(ChannelWriterEventListener), new(ChannelWriterEventListener)}}
 		registry := Aggregators{
-			reflect.TypeOf(new(ShoutOut)): new(EchoHandler)}
+			reflect.TypeOf(new(ShoutCommand)): new(EchoAggregate)}
 		md, err := NewMessageDispatcher(registry, listeners, new(NullEventStore))
 		So(err, ShouldEqual, nil)
 
-		Convey("A ShoutOut should make noise", func() {
+		Convey("A ShoutCommand should make noise", func() {
 			go func() {
 				Convey("SendCommand should succeed", t, func() {
-					err := md.SendCommand(&ShoutOut{1, "hello humanoid"})
+					err := md.SendCommand(&ShoutCommand{1, "hello humanoid"})
 					So(err, ShouldEqual, nil)
 				})
 				close(testChannel)
