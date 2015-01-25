@@ -7,6 +7,8 @@ type Event interface {
 	Id() AggregateId
 }
 
+// React to something that happened.
+// Build a read model, send an email, whatever.
 type EventListener interface {
 	apply(e Event) error
 }
@@ -17,6 +19,8 @@ type EventStorer interface {
 	SaveEventsFor(AggregateId, []Event, []Event)
 }
 
+// An event storer that neither stores nor restores.
+// It minimally satisfies the interface.
 type NullEventStorer struct {}
 
 func (es *NullEventStorer) LoadEventsFor(id AggregateId) ([]Event, error) {
@@ -26,6 +30,10 @@ func (es *NullEventStorer) LoadEventsFor(id AggregateId) ([]Event, error) {
 func (es *NullEventStorer) SaveEventsFor(id AggregateId, loaded []Event, result []Event) {
 }
 
+// Store events in file system.
+// Events are stored in a file named
+// <aggregate_type>_<aggregate_id>.json
+// and the events are stored as JSON.
 type FileSystemEventStorer struct {
 	rootdir	string
 }

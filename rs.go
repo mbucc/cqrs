@@ -7,18 +7,32 @@ import (
 //"log"
 )
 
-// In the Edument sample app
-// they combine Aggregates
-// and command handlers.
+// An aggregate defines a boundary around the
+// set of data that must be consistent in order
+// to guarantee that a rule is kept.
 type Aggregator interface {
 	CommandHandler
 	ApplyEvents([]Event)
 }
 
+// The type of function that runs
+// when a command is sent
+// to the message dispatcher.
 type CommandProcessor func(c Command) error
+
+// The message dispatcher
+// maps each command type
+// to one command processor.
 type CommandProcessors map[reflect.Type]CommandProcessor
+
+// When the dispatcher is instantiated,
+// one of the arguments is a map
+// that associates one Aggregator
+// with each command type.
 type Aggregators map[reflect.Type]Aggregator
 
+// An event listener is typically
+// a read model.
 type EventListeners map[reflect.Type][]EventListener
 
 // Registers event and command listeners.  Dispatches commands.
@@ -27,6 +41,11 @@ type messageDispatcher struct {
 	listeners EventListeners
 }
 
+// Instantiate aggregate associated with this command,
+// load all events we've already stored for this aggregate,
+// process the command,
+// and persist any events that were generated
+// as a result of the command processing.
 func (md *messageDispatcher) SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if processor, ok := md.handlers[t]; ok {
@@ -56,6 +75,11 @@ func (md *messageDispatcher) PublishEvent(e Event) error {
 	return nil
 }
 
+// Create anonymous functions for each command
+// that process the command (instantiate aggregate,
+// load events, process new command,
+// store new events from processing).
+// Register event listeners.
 func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*messageDispatcher, error) {
 	var events []Event
 	var err error
@@ -87,5 +111,4 @@ func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*m
 	md.listeners = l
 	return md, nil
 }
-
 func main() {}
