@@ -2,7 +2,7 @@ package main
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
-	"log"
+
 	"reflect"
 	"testing"
 )
@@ -46,6 +46,12 @@ func (h *ChannelWriterEventListener) apply(e Event) error {
 	return nil
 }
 
+type NullEventListener struct{}
+
+func (h *NullEventListener) apply(e Event) error {
+	return nil
+}
+
 func TestHandledCommandReturnsEvents(t *testing.T) {
 
 	Convey("Given a shout out and a shout out handler", t, func() {
@@ -66,7 +72,6 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 }
 
 func TestSendCommand(t *testing.T) {
-	log.Println("starting TestPublishEvent")
 
 	Convey("Given an echo handler and a couple SayIt listeners", t, func() {
 		listeners := EventListeners{
@@ -98,3 +103,25 @@ func TestSendCommand(t *testing.T) {
 		})
 	})
 }
+
+func TestFileSystemEventStore(t *testing.T) {
+	aggid := AggregateId(1)
+	es := &FileSystemEventStore{"/tmp"}
+
+	Convey("Given an echo handler and a couple SayIt listeners", t, func() {
+		listeners := EventListeners{
+			reflect.TypeOf(new(HeardEvent)): []EventListener{
+				new(NullEventListener), new(NullEventListener)}}
+		registry := Aggregators{
+			reflect.TypeOf(new(ShoutCommand)): new(EchoAggregate)}
+		md, err := NewMessageDispatcher(registry, listeners, es)
+		So(err, ShouldEqual, nil)
+
+		Convey("A ShoutCommand persist two events", func() {
+			err := md.SendCommand(&ShoutCommand{aggid, "hello humanoid"})
+			So(err, ShouldEqual, nil)
+			So(len(es.LoadEventsFor(aggid)), ShouldEqual, 2)
+		})
+	})
+}
+

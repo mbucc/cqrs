@@ -25,3 +25,14 @@ func (es *NullEventStore) LoadEventsFor(id AggregateId) []Event {
 
 func (es *NullEventStore) SaveEventsFor(id AggregateId, loaded []Event, result []Event) {
 }
+
+type FileSystemEventStore struct {
+	rootdir	string
+}
+
+func (es *FileSystemEventStore) LoadEventsFor(id AggregateId) []Event {
+	return []Event{}
+}
+
+func (es *FileSystemEventStore) SaveEventsFor(id AggregateId, loaded []Event, result []Event) {
+}
