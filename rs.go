@@ -57,20 +57,24 @@ func (md *messageDispatcher) PublishEvent(e Event) error {
 }
 
 func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*messageDispatcher, error) {
+	var events []Event
+	var err error
 	md := new(messageDispatcher)
 	m := make(CommandProcessors, len(hr))
 	for commandtype, agg := range hr {
 		m[commandtype] = func(c Command) error {
 			a := reflect.New(reflect.TypeOf(agg)).Elem().Interface().(Aggregator)
-			a.ApplyEvents(es.LoadEventsFor(c.Id()))
-			if events, err := a.handle(c); err == nil {
-				for _, event := range events {
-					if err = md.PublishEvent(event); err != nil {
-						return err
-					}
-				}
-			} else {
+			if events, err = es.LoadEventsFor(c.Id()) ; err != nil {
 				return err
+			}
+			a.ApplyEvents(events)
+			if events, err = a.handle(c); err != nil {
+				return err
+			}
+			for _, event := range events {
+				if err = md.PublishEvent(event); err != nil {
+					return err
+				}
 			}
 			return nil
 		}

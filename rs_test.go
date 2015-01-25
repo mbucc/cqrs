@@ -120,7 +120,8 @@ func TestFileSystemEventStorer(t *testing.T) {
 		Convey("A ShoutCommand persist two events", func() {
 			err := md.SendCommand(&ShoutCommand{aggid, "hello humanoid"})
 			So(err, ShouldEqual, nil)
-			So(len(es.LoadEventsFor(aggid)), ShouldEqual, 2)
+			events, err := es.LoadEventsFor(aggid)
+			So(len(events), ShouldEqual, 2)
 		})
 	})
 }
