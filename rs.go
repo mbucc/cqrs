@@ -56,7 +56,7 @@ func (md *messageDispatcher) PublishEvent(e Event) error {
 	return nil
 }
 
-func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStore) (*messageDispatcher, error) {
+func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*messageDispatcher, error) {
 	md := new(messageDispatcher)
 	m := make(CommandProcessors, len(hr))
 	for commandtype, agg := range hr {

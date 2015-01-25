@@ -79,7 +79,7 @@ func TestSendCommand(t *testing.T) {
 				new(ChannelWriterEventListener), new(ChannelWriterEventListener)}}
 		registry := Aggregators{
 			reflect.TypeOf(new(ShoutCommand)): new(EchoAggregate)}
-		md, err := NewMessageDispatcher(registry, listeners, new(NullEventStore))
+		md, err := NewMessageDispatcher(registry, listeners, new(NullEventStorer))
 		So(err, ShouldEqual, nil)
 
 		Convey("A ShoutCommand should make noise", func() {
@@ -104,9 +104,9 @@ func TestSendCommand(t *testing.T) {
 	})
 }
 
-func TestFileSystemEventStore(t *testing.T) {
+func TestFileSystemEventStorer(t *testing.T) {
 	aggid := AggregateId(1)
-	es := &FileSystemEventStore{"/tmp"}
+	es := &FileSystemEventStorer{"/tmp"}
 
 	Convey("Given an echo handler and two null listeners", t, func() {
 		listeners := EventListeners{

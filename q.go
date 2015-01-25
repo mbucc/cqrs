@@ -12,27 +12,27 @@ type EventListener interface {
 }
 
 // Persist and restore events.
-type EventStore interface {
+type EventStorer interface {
 	LoadEventsFor(AggregateId) []Event
 	SaveEventsFor(AggregateId, []Event, []Event)
 }
 
-type NullEventStore struct {}
+type NullEventStorer struct {}
 
-func (es *NullEventStore) LoadEventsFor(id AggregateId) []Event {
+func (es *NullEventStorer) LoadEventsFor(id AggregateId) []Event {
 	return []Event{}
 }
 
-func (es *NullEventStore) SaveEventsFor(id AggregateId, loaded []Event, result []Event) {
+func (es *NullEventStorer) SaveEventsFor(id AggregateId, loaded []Event, result []Event) {
 }
 
-type FileSystemEventStore struct {
+type FileSystemEventStorer struct {
 	rootdir	string
 }
 
-func (es *FileSystemEventStore) LoadEventsFor(id AggregateId) []Event {
+func (es *FileSystemEventStorer) LoadEventsFor(id AggregateId) []Event {
 	return []Event{}
 }
 
-func (es *FileSystemEventStore) SaveEventsFor(id AggregateId, loaded []Event, result []Event) {
+func (es *FileSystemEventStorer) SaveEventsFor(id AggregateId, loaded []Event, result []Event) {
 }
