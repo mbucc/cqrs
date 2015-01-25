@@ -1,10 +1,9 @@
-cqrs-sample-app
+cqrs
 since: Sun Nov 30 14:29:50 EST 2014
 
-Translate the CQRS starter kit [1], created by Edument, into Go.
+Translate the CQRS starter kit [EDUM] into Go.
 
-See https://github.com/mbucc/cqrs-sample-app/wiki for notes 
-on command/query responsibility separation terms.
+See https://github.com/mbucc/cqrs/wiki for my notes.
 
-[1] http://github.com/edumentab/cqrs-starter-kit
-
+[EDUM] Edument AB (April 30, 2013).  A starter kit for working with CQRS and
+intentful testing.  Retrieved from https://github.com/edumentab/cqrs-starter-kit
