@@ -66,29 +66,7 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 }
 
 func TestSendCommand(t *testing.T) {
-
-	Convey("Given a dispatcher that sends ShoutOuts to an EchoHandler", t, func() {
-		registry := Aggregators{
-			reflect.TypeOf(new(ShoutOut)): new(EchoHandler)}
-		md, err := NewMessageDispatcher(registry, nil, new(NullEventStore))
-		So(err, ShouldEqual, nil)
-
-		Convey("Sending a ShoutOut should return a single HeardIt event", func() {
-			events, err := md.SendCommand(&ShoutOut{1, "hello world"})
-			So(err, ShouldEqual, nil)
-			So(len(events), ShouldEqual, 1)
-			So(events[0].(*HeardIt).Heard, ShouldEqual, "hello world")
-		})
-	})
-}
-
-func TestPublishEvent(t *testing.T) {
 	log.Println("starting TestPublishEvent")
-
-	var err0 error
-	if err0 != nil {
-		log.Panicf("can't open temp file")
-	}
 
 	Convey("Given an echo handler and a couple SayIt listeners", t, func() {
 		listeners := EventListeners{
@@ -99,12 +77,9 @@ func TestPublishEvent(t *testing.T) {
 		So(err, ShouldEqual, nil)
 
 		Convey("A ShoutOut should make noise", func() {
-			events, err := md.SendCommand(&ShoutOut{1, "hello humanoid"})
-			So(err, ShouldEqual, nil)
-			So(len(events), ShouldEqual, 1)
 			go func() {
-				Convey("Should be able to publish events", t, func() {
-					err := md.PublishEvent(events[0])
+				Convey("SendCommand should succeed", t, func() {
+					err := md.SendCommand(&ShoutOut{1, "hello humanoid"})
 					So(err, ShouldEqual, nil)
 				})
 				close(testChannel)

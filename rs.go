@@ -15,7 +15,7 @@ type Aggregator interface {
 	ApplyEvents([]Event)
 }
 
-type CommandProcessor func(c Command) ([]Event, error)
+type CommandProcessor func(c Command) error
 type CommandProcessors map[reflect.Type]CommandProcessor
 type Aggregators map[reflect.Type]Aggregator
 
@@ -27,12 +27,12 @@ type messageDispatcher struct {
 	listeners EventListeners
 }
 
-func (md *messageDispatcher) SendCommand(c Command) ([]Event, error) {
+func (md *messageDispatcher) SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if processor, ok := md.handlers[t]; ok {
 		return processor(c)
 	}
-	return nil, errors.New(fmt.Sprint("No handler registered for command ", t))
+	return errors.New(fmt.Sprint("No handler registered for command ", t))
 }
 
 // Since events represent a thing that actually happened,
@@ -45,12 +45,10 @@ func (md *messageDispatcher) SendCommand(c Command) ([]Event, error) {
 // in a durable queue so when the error condition clears
 // the listener can successfully do it's thing.
 func (md *messageDispatcher) PublishEvent(e Event) error {
-	var err error
 	t := reflect.TypeOf(e)
 	if a, ok := md.listeners[t]; ok {
 		for _, listener := range a {
-			err = listener.apply(e)
-			if err != nil {
+			if err := listener.apply(e); err != nil {
 				return err
 			}
 		}
@@ -59,19 +57,31 @@ func (md *messageDispatcher) PublishEvent(e Event) error {
 }
 
 func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStore) (*messageDispatcher, error) {
+	md := new(messageDispatcher)
 	m := make(CommandProcessors, len(hr))
 	for commandtype, agg := range hr {
-		m[commandtype] = func(c Command) ([]Event, error) {
+		m[commandtype] = func(c Command) error {
 			a := reflect.New(reflect.TypeOf(agg)).Elem().Interface().(Aggregator)
 			a.ApplyEvents(es.LoadEventsFor(c.Id()))
-			return a.handle(c)
+			if events, err := a.handle(c); err == nil {
+				for _, event := range events {
+					if err = md.PublishEvent(event); err != nil {
+						return err
+					}
+				}
+			} else {
+				return err
+			}
+			return nil
 		}
 	}
 	l := make(EventListeners, len(lr))
 	for eventtype, listeners := range lr {
 		l[eventtype] = listeners
 	}
-	return &messageDispatcher{handlers: m, listeners: l}, nil
+	md.handlers = m
+	md.listeners = l
+	return md, nil
 }
 
 func main() {}
