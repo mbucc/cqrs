@@ -1,8 +1,7 @@
-package main
+package cqrs
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
-
 	"reflect"
 	"testing"
 )

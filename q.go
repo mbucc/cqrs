@@ -1,4 +1,4 @@
-package main
+package cqrs
 
 // An event is something that happened
 // as a result of a command;

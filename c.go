@@ -1,7 +1,6 @@
 // A Go version of Edument's (http://cqrs.nu/) CQRS sample application.
 // CQRS stands for command/query responsibility separation.
-// I wanted to learn about command/query separation.
-package main
+package cqrs
 
 // In the Edument sample app,
 // each tab defines a distinct aggregate instance

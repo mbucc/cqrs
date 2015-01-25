@@ -1,6 +1,6 @@
 Convert Edument's [EDUM] command-query responsibility separation (CQRS) kit into Go.
 
-See https://github on the CQRS designcom/mbucc/cqrs/wiki for more information.
+See https://github on the CQRS designcom/mbucc/cqrs/wiki for more information
 on CQRS design.
 
 [EDUM] Edument AB (April 30, 2013).  A starter kit for working with CQRS and
