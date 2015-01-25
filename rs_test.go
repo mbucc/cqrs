@@ -73,7 +73,7 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 
 func TestSendCommand(t *testing.T) {
 
-	Convey("Given an echo handler and a couple SayIt listeners", t, func() {
+	Convey("Given an echo handler and two channel writerlisteners", t, func() {
 		listeners := EventListeners{
 			reflect.TypeOf(new(HeardEvent)): []EventListener{
 				new(ChannelWriterEventListener), new(ChannelWriterEventListener)}}
@@ -108,7 +108,7 @@ func TestFileSystemEventStore(t *testing.T) {
 	aggid := AggregateId(1)
 	es := &FileSystemEventStore{"/tmp"}
 
-	Convey("Given an echo handler and a couple SayIt listeners", t, func() {
+	Convey("Given an echo handler and two null listeners", t, func() {
 		listeners := EventListeners{
 			reflect.TypeOf(new(HeardEvent)): []EventListener{
 				new(NullEventListener), new(NullEventListener)}}
