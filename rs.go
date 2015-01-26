@@ -13,7 +13,6 @@ import (
 type Aggregator interface {
 	CommandHandler
 	ApplyEvents([]Event)
-	Id() AggregateId
 }
 
 // The type of function that runs
