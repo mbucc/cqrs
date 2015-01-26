@@ -10,7 +10,7 @@ import (
 // as a result of a command;
 // for example, FaceSlapped.
 type Event interface {
-	Id() AggregateId
+	ID() AggregateID
 }
 
 // React to something that happened.
@@ -21,19 +21,19 @@ type EventListener interface {
 
 // Persist and restore events.
 type EventStorer interface {
-	LoadEventsFor(AggregateId) ([]Event, error)
-	SaveEventsFor(AggregateId, []Event, []Event) error
+	LoadEventsFor(AggregateID) ([]Event, error)
+	SaveEventsFor(AggregateID, []Event, []Event) error
 }
 
 // An event storer that neither stores nor restores.
 // It minimally satisfies the interface.
 type NullEventStorer struct {}
 
-func (es *NullEventStorer) LoadEventsFor(id AggregateId) ([]Event, error) {
+func (es *NullEventStorer) LoadEventsFor(id AggregateID) ([]Event, error) {
 	return []Event{}, nil
 }
 
-func (es *NullEventStorer) SaveEventsFor(id AggregateId, loaded []Event, result []Event) error {
+func (es *NullEventStorer) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
 	return nil
 }
 
@@ -56,11 +56,11 @@ func NewFileSystemEventStorer(rootdir string, types []Event)  *fileSystemEventSt
 }
 
 
-func (es *fileSystemEventStorer) aggregateFileName(id AggregateId) string {
+func (es *fileSystemEventStorer) aggregateFileName(id AggregateID) string {
 	return fmt.Sprintf("%s/aggregate%v.gob", es.rootdir, id)
 }
 
-func (es *fileSystemEventStorer) LoadEventsFor(id AggregateId) ([]Event, error) {
+func (es *fileSystemEventStorer) LoadEventsFor(id AggregateID) ([]Event, error) {
 	var events []Event
 	fn := es.aggregateFileName(id)
 	if _, err := os.Stat(fn); err != nil {
@@ -82,7 +82,7 @@ func (es *fileSystemEventStorer) LoadEventsFor(id AggregateId) ([]Event, error) 
 	return events, nil
 }
 
-func (es *fileSystemEventStorer) SaveEventsFor(id AggregateId, loaded []Event, result []Event) error {
+func (es *fileSystemEventStorer) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
 	fn := es.aggregateFileName(id)
 	tmpfn := fn + ".tmp"
 

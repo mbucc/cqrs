@@ -88,7 +88,7 @@ func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*m
 	for commandtype, agg := range hr {
 		m[commandtype] = func(c Command) error {
 			a := reflect.New(reflect.TypeOf(agg)).Elem().Interface().(Aggregator)
-			if oldEvents, err = es.LoadEventsFor(c.Id()); err != nil {
+			if oldEvents, err = es.LoadEventsFor(c.ID()); err != nil {
 				return err
 			}
 			a.ApplyEvents(oldEvents)
@@ -100,7 +100,7 @@ func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*m
 					return err
 				}
 			}
-			if err := es.SaveEventsFor(c.Id(), oldEvents, newEvents); err != nil {
+			if err := es.SaveEventsFor(c.ID(), oldEvents, newEvents); err != nil {
 				return err
 			}
 			return nil

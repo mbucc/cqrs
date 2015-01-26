@@ -9,38 +9,38 @@ import (
 var testChannel = make(chan string)
 
 type ShoutCommand struct {
-	id      AggregateId
+	id      AggregateID
 	Comment string
 }
 
-func (c *ShoutCommand) Id() AggregateId {
+func (c *ShoutCommand) ID() AggregateID {
 	return c.id
 }
 
 type HeardEvent struct {
-	id    AggregateId
+	id    AggregateID
 	Heard string
 }
 
-func (e *HeardEvent) Id() AggregateId {
+func (e *HeardEvent) ID() AggregateID {
 	return e.id
 }
 
 type EchoAggregate struct{
-	id	AggregateId
+	id	AggregateID
 }
 
 func (eh *EchoAggregate) handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
 	c1 := c.(*ShoutCommand)
-	a[0] = &HeardEvent{c1.Id(), c1.Comment}
+	a[0] = &HeardEvent{c1.ID(), c1.Comment}
 	return a, nil
 }
 
 func (eh *EchoAggregate) ApplyEvents([]Event) {
 }
 
-func (eh *EchoAggregate) Id() AggregateId {
+func (eh *EchoAggregate) ID() AggregateID {
 	return eh.id
 }
 
@@ -110,7 +110,7 @@ func TestSendCommand(t *testing.T) {
 }
 
 func TestFileSystemEventStorer(t *testing.T) {
-	aggid := AggregateId(1)
+	aggid := AggregateID(1)
 	es := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
 
 	Convey("Given an echo handler and two null listeners", t, func() {
