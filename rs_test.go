@@ -26,7 +26,9 @@ func (e *HeardEvent) Id() AggregateId {
 	return e.id
 }
 
-type EchoAggregate struct{}
+type EchoAggregate struct{
+	id	AggregateId
+}
 
 func (eh *EchoAggregate) handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
@@ -36,6 +38,10 @@ func (eh *EchoAggregate) handle(c Command) (a []Event, err error) {
 }
 
 func (eh *EchoAggregate) ApplyEvents([]Event) {
+}
+
+func (eh *EchoAggregate) Id() AggregateId {
+	return eh.id
 }
 
 type ChannelWriterEventListener struct{}
@@ -105,7 +111,7 @@ func TestSendCommand(t *testing.T) {
 
 func TestFileSystemEventStorer(t *testing.T) {
 	aggid := AggregateId(1)
-	es := &FileSystemEventStorer{"/tmp"}
+	es := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
 
 	Convey("Given an echo handler and two null listeners", t, func() {
 		listeners := EventListeners{
@@ -120,7 +126,7 @@ func TestFileSystemEventStorer(t *testing.T) {
 			err := md.SendCommand(&ShoutCommand{aggid, "hello humanoid"})
 			So(err, ShouldEqual, nil)
 			events, err := es.LoadEventsFor(aggid)
-			So(len(events), ShouldEqual, 2)
+			So(len(events), ShouldEqual, 1)
 		})
 	})
 }

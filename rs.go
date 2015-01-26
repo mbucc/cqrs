@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-//"log"
+	//"log"
 )
 
 // An aggregate defines a boundary around the
@@ -13,6 +13,7 @@ import (
 type Aggregator interface {
 	CommandHandler
 	ApplyEvents([]Event)
+	Id() AggregateId
 }
 
 // The type of function that runs
@@ -81,24 +82,27 @@ func (md *messageDispatcher) PublishEvent(e Event) error {
 // store new events from processing).
 // Register event listeners.
 func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*messageDispatcher, error) {
-	var events []Event
+	var oldEvents, newEvents []Event
 	var err error
 	md := new(messageDispatcher)
 	m := make(CommandProcessors, len(hr))
 	for commandtype, agg := range hr {
 		m[commandtype] = func(c Command) error {
 			a := reflect.New(reflect.TypeOf(agg)).Elem().Interface().(Aggregator)
-			if events, err = es.LoadEventsFor(c.Id()) ; err != nil {
+			if oldEvents, err = es.LoadEventsFor(c.Id()); err != nil {
 				return err
 			}
-			a.ApplyEvents(events)
-			if events, err = a.handle(c); err != nil {
+			a.ApplyEvents(oldEvents)
+			if newEvents, err = a.handle(c); err != nil {
 				return err
 			}
-			for _, event := range events {
+			for _, event := range newEvents {
 				if err = md.PublishEvent(event); err != nil {
 					return err
 				}
+			}
+			if err := es.SaveEventsFor(c.Id(), oldEvents, newEvents); err != nil {
+				return err
 			}
 			return nil
 		}
