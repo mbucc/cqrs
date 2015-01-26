@@ -18,12 +18,12 @@ type Aggregator interface {
 // The type of function that runs
 // when a command is sent
 // to the message dispatcher.
-type CommandProcessor func(c Command) error
+type commandProcessor func(c Command) error
 
 // The message dispatcher
 // maps each command type
 // to one command processor.
-type CommandProcessors map[reflect.Type]CommandProcessor
+type commandProcessors map[reflect.Type]commandProcessor
 
 // When the dispatcher is instantiated,
 // one of the arguments is a map
@@ -37,7 +37,7 @@ type EventListeners map[reflect.Type][]EventListener
 
 // Registers event and command listeners.  Dispatches commands.
 type messageDispatcher struct {
-	handlers  CommandProcessors
+	handlers  commandProcessors
 	listeners EventListeners
 }
 
@@ -84,7 +84,7 @@ func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*m
 	var oldEvents, newEvents []Event
 	var err error
 	md := new(messageDispatcher)
-	m := make(CommandProcessors, len(hr))
+	m := make(commandProcessors, len(hr))
 	for commandtype, agg := range hr {
 		m[commandtype] = func(c Command) error {
 			a := reflect.New(reflect.TypeOf(agg)).Elem().Interface().(Aggregator)
