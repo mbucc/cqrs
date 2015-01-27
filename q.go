@@ -62,6 +62,7 @@ type fileSystemEventStorer struct {
 // as it uses encoding/gob 
 // to restore the data to an array
 // Event interfaces.
+// BUG(mbucc) Only persists newly generated events!
 func NewFileSystemEventStorer(rootdir string, types []Event)  *fileSystemEventStorer {
 	fes := new(fileSystemEventStorer)
 	fes.rootdir = rootdir
