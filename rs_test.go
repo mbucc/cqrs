@@ -82,7 +82,7 @@ func TestSendCommand(t *testing.T) {
 
 	Convey("Given an echo handler and two channel writerlisteners", t, func() {
 
-		RegisterEventListeners(new(HeardEvent), 
+		RegisterEventListeners(new(HeardEvent),
 			new(ChannelWriterEventListener),
 			new(ChannelWriterEventListener))
 		RegisterCommand(new(ShoutCommand), new(EchoAggregate))
@@ -121,11 +121,37 @@ func TestFileSystemEventStorer(t *testing.T) {
 
 	Convey("Given an echo handler and two null listeners", t, func() {
 
-		Convey("A ShoutCommand persist an event", func() {
+		Convey("A ShoutCommand should persist an event", func() {
 			err := SendCommand(&ShoutCommand{aggid, "hello humanoid"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(aggid)
 			So(len(events), ShouldEqual, 1)
+		})
+	})
+}
+
+func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
+
+	unregisterAll()
+
+	Convey("Given an echo handler and two null listeners", t, func() {
+
+		aggid := AggregateID(1)
+		store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
+		RegisterEventStore(store)
+		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+		RegisterCommand(new(ShoutCommand), new(EchoAggregate))
+
+		Convey("A ShoutCommand should persist old and new events", func() {
+			err := SendCommand(&ShoutCommand{aggid, "hello humanoid"})
+			So(err, ShouldEqual, nil)
+			events, err := store.LoadEventsFor(aggid)
+			So(len(events), ShouldEqual, 1)
+
+			err = SendCommand(&ShoutCommand{aggid, "hello humanoid"})
+			So(err, ShouldEqual, nil)
+			events, err = store.LoadEventsFor(aggid)
+			So(len(events), ShouldEqual, 2)
 		})
 	})
 }
