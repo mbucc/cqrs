@@ -30,7 +30,6 @@ func (c *ShoutCommand) Rollback() error {
 	return nil
 }
 
-
 type HeardEvent struct {
 	id    AggregateID
 	Heard string
@@ -40,7 +39,7 @@ func (e *HeardEvent) ID() AggregateID {
 	return e.id
 }
 
-type EchoAggregate struct{
+type EchoAggregate struct {
 }
 
 func (eh *EchoAggregate) Handle(c Command) (a []Event, err error) {
@@ -53,14 +52,13 @@ func (eh *EchoAggregate) Handle(c Command) (a []Event, err error) {
 func (eh *EchoAggregate) ApplyEvents([]Event) {
 }
 
-
-type SlowThenFastEchoAggregate struct{
-	toggle  int
+type SlowThenFastEchoAggregate struct {
+	toggle int
 }
 
 func (h *SlowThenFastEchoAggregate) Handle(c Command) (a []Event, err error) {
 	h.toggle += 1
-	if h.toggle % 2 != 0 {
+	if h.toggle%2 != 0 {
 		time.Sleep(250 * time.Millisecond)
 	}
 	a = make([]Event, 1)
@@ -184,7 +182,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 			So(err, ShouldEqual, nil)
 			events, err = store.LoadEventsFor(aggid)
 			So(len(events), ShouldEqual, 2)
-			})
+		})
 		Reset(func() {
 			os.Remove("/tmp/aggregate1.gob")
 		})
@@ -213,11 +211,10 @@ func TestConcurrencyError(t *testing.T) {
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(1)
 			So(len(events), ShouldEqual, 1)
-			})
+		})
 		Reset(func() {
 			os.Remove("/tmp/aggregate1.gob")
 			os.Remove("/tmp/aggregate1.gob.tmp")
 		})
 	})
 }
-
