@@ -116,4 +116,3 @@ func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*m
 	md.listeners = l
 	return md, nil
 }
-func main() {}
