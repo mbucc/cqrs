@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	//"log"
 )
 
 // An Aggregator is a concept borrowed
