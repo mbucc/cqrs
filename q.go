@@ -13,19 +13,21 @@ type Event interface {
 	ID() AggregateID
 }
 
-// React to something that happened.
-// Build a read model, send an email, whatever.
+// An EventListener is typically a read model,
+// for example, a denormalized summary of your
+// data that is very fast to query.
 type EventListener interface {
 	apply(e Event) error
 }
 
-// Persist and restore events.
+// An EventStorer is an interfaces that defines the methods
+// that persist events
 type EventStorer interface {
 	LoadEventsFor(AggregateID) ([]Event, error)
 	SaveEventsFor(AggregateID, []Event, []Event) error
 }
 
-// An event storer that neither stores nor restores.
+// A NullEventStorer is an event storer that neither stores nor restores.
 // It minimally satisfies the interface.
 type NullEventStorer struct {}
 

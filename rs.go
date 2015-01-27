@@ -7,9 +7,12 @@ import (
 	//"log"
 )
 
-// An aggregate defines a boundary around the
-// set of data that must be consistent in order
-// to guarantee that a rule is kept.
+// An Aggregator is a concept borrowed
+// from domain driven design,
+// and defines a "noun" in your system
+// which contains enough state to guarantee
+// that one (or more) of you business
+// rules are kept.
 type Aggregator interface {
 	CommandHandler
 	ApplyEvents([]Event)
@@ -25,14 +28,14 @@ type commandProcessor func(c Command) error
 // to one command processor.
 type commandProcessors map[reflect.Type]commandProcessor
 
-// When the dispatcher is instantiated,
-// one of the arguments is a map
-// that associates one Aggregator
-// with each command type.
+// The Aggregators is a convenience type
+// that describes one of the arguments
+// used to create a message dispatcher.
 type Aggregators map[reflect.Type]Aggregator
 
-// An event listener is typically
-// a read model.
+// The EventListeners is a convenience type
+// that describes one of the arguments used to
+// create a message dispatcher.
 type EventListeners map[reflect.Type][]EventListener
 
 // Registers event and command listeners.  Dispatches commands.
@@ -75,11 +78,10 @@ func (md *messageDispatcher) PublishEvent(e Event) error {
 	return nil
 }
 
-// Create anonymous functions for each command
-// that process the command (instantiate aggregate,
-// load events, process new command,
-// store new events from processing).
-// Register event listeners.
+// A NewMessageDispatcher is what processes commands.
+// You create one by defining which aggregate is associated
+// with each Command, the listeners for each Event type,
+// and the way you want to persist the event history.
 func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*messageDispatcher, error) {
 	var oldEvents, newEvents []Event
 	var err error

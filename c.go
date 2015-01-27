@@ -12,15 +12,14 @@
 // 
 // It is not suitable for large volume applications, as the conflict resolution is
 // primitive, simply returning an error instead of retrying.
-
 package cqrs
 
-// AggregateID is a unique identifier for an Aggregator instance.
-
+// An AggregateID is a unique identifier for an Aggregator instance.
+//
 // All Events and Commands are associated with an aggregate instance.
 type AggregateID int
 
-// A command is an action
+// A Command is an action
 // that can be accepted or rejected.
 // For example, MoreDrinksWench!
 // might be a command in a medieval
