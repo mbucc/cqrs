@@ -92,7 +92,7 @@ func NewMessageDispatcher(hr Aggregators, lr EventListeners, es EventStorer) (*m
 				return err
 			}
 			a.ApplyEvents(oldEvents)
-			if newEvents, err = a.handle(c); err != nil {
+			if newEvents, err = a.Handle(c); err != nil {
 				return err
 			}
 			for _, event := range newEvents {

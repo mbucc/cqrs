@@ -30,7 +30,7 @@ type EchoAggregate struct{
 	id	AggregateID
 }
 
-func (eh *EchoAggregate) handle(c Command) (a []Event, err error) {
+func (eh *EchoAggregate) Handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
 	c1 := c.(*ShoutCommand)
 	a[0] = &HeardEvent{c1.ID(), c1.Comment}
@@ -66,7 +66,7 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 
 		Convey("When the shout out is handled", func() {
 
-			rval, _ := h.handle(&shout)
+			rval, _ := h.Handle(&shout)
 
 			Convey("It should return one event", func() {
 

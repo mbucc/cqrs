@@ -15,7 +15,8 @@
 
 package cqrs
 
-// Each aggregate instance is identified by a unique id.
+// AggregateID is a unique identifier for an Aggregator instance.
+
 // All Events and Commands are associated with an aggregate instance.
 type AggregateID int
 
@@ -29,11 +30,13 @@ type Command interface {
 }
 
 
-// Command handlers are responsible
+// CommandHandleris the interface
+// that wraps the handle() command.
+//
 // for validating commands,
 // both as a stand-alone set of data
 // as well as in the context
 // of the Command's aggregate.
 type CommandHandler interface {
-        handle(c Command) (e []Event, err error)
+        Handle(c Command) (e []Event, err error)
 }
