@@ -27,17 +27,17 @@ type EventStorer interface {
 	SaveEventsFor(AggregateID, []Event, []Event) error
 }
 
-// A NullEventStorer is an event storer that neither stores nor restores.
+// A NullEventStore is an event storer that neither stores nor restores.
 // It minimally satisfies the interface.
-type NullEventStorer struct {}
+type NullEventStore struct {}
 
 // LoadEventsFor in the null EventStorer returns an empty array.
-func (es *NullEventStorer) LoadEventsFor(id AggregateID) ([]Event, error) {
+func (es *NullEventStore) LoadEventsFor(id AggregateID) ([]Event, error) {
 	return []Event{}, nil
 }
 
 // SaveEventsFor in the null EventStorer doesn't save anything.
-func (es *NullEventStorer) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
+func (es *NullEventStore) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
 	return nil
 }
 

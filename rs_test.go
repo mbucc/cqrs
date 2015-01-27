@@ -2,7 +2,7 @@ package cqrs
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
-	"reflect"
+//	"reflect"
 	"testing"
 )
 
@@ -78,19 +78,19 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 
 func TestSendCommand(t *testing.T) {
 
-	Convey("Given an echo handler and two channel writerlisteners", t, func() {
-		listeners := EventListeners{
-			reflect.TypeOf(new(HeardEvent)): []EventListener{
-				new(ChannelWriterEventListener), new(ChannelWriterEventListener)}}
-		registry := Aggregators{
-			reflect.TypeOf(new(ShoutCommand)): new(EchoAggregate)}
-		md, err := NewMessageDispatcher(registry, listeners, new(NullEventStorer))
-		So(err, ShouldEqual, nil)
+	unregisterAll()
 
-		Convey("A ShoutCommand should make noise", func() {
+	Convey("Given an echo handler and two channel writerlisteners", t, func() {
+
+		RegisterEventListeners(new(HeardEvent), 
+			new(ChannelWriterEventListener),
+			new(ChannelWriterEventListener))
+		RegisterCommand(new(ShoutCommand), new(EchoAggregate))
+		RegisterEventStore(new(NullEventStore))
+		Convey("A ShoutCommand should be heard", func() {
 			go func() {
 				Convey("SendCommand should succeed", t, func() {
-					err := md.SendCommand(&ShoutCommand{1, "hello humanoid"})
+					err := SendCommand(&ShoutCommand{1, "hello humanoid"})
 					So(err, ShouldEqual, nil)
 				})
 				close(testChannel)
@@ -110,22 +110,21 @@ func TestSendCommand(t *testing.T) {
 }
 
 func TestFileSystemEventStorer(t *testing.T) {
+
+	unregisterAll()
+
 	aggid := AggregateID(1)
-	es := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
+	store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
+	RegisterEventStore(store)
+	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+	RegisterCommand(new(ShoutCommand), new(EchoAggregate))
 
 	Convey("Given an echo handler and two null listeners", t, func() {
-		listeners := EventListeners{
-			reflect.TypeOf(new(HeardEvent)): []EventListener{
-				new(NullEventListener), new(NullEventListener)}}
-		registry := Aggregators{
-			reflect.TypeOf(new(ShoutCommand)): new(EchoAggregate)}
-		md, err := NewMessageDispatcher(registry, listeners, es)
-		So(err, ShouldEqual, nil)
 
-		Convey("A ShoutCommand persist two events", func() {
-			err := md.SendCommand(&ShoutCommand{aggid, "hello humanoid"})
+		Convey("A ShoutCommand persist an event", func() {
+			err := SendCommand(&ShoutCommand{aggid, "hello humanoid"})
 			So(err, ShouldEqual, nil)
-			events, err := es.LoadEventsFor(aggid)
+			events, err := store.LoadEventsFor(aggid)
 			So(len(events), ShouldEqual, 1)
 		})
 	})
