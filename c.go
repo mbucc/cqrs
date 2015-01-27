@@ -30,13 +30,13 @@ type Command interface {
 }
 
 
-// CommandHandleris the interface
-// that wraps the handle() command.
+// CommandHandler is the interface
+// that wraps the Handle(c Command) command.
 //
-// for validating commands,
-// both as a stand-alone set of data
-// as well as in the context
-// of the Command's aggregate.
+// The implementor will typically:
+//   - validate the command data
+//   - generate events for a valid command
+//   - try to persist events
 type CommandHandler interface {
         Handle(c Command) (e []Event, err error)
 }

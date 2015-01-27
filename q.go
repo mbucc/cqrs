@@ -64,11 +64,10 @@ func (es *fileSystemEventStorer) LoadEventsFor(id AggregateID) ([]Event, error) 
 	var events []Event
 	fn := es.aggregateFileName(id)
 	if _, err := os.Stat(fn); err != nil {
-	    if os.IsNotExist(err) {
-		return events, nil
-	    } else {
+		if os.IsNotExist(err) {
+			return events, nil
+		}
 		return nil, fmt.Errorf("LoadEventsFor(%v): can't stat '%s', %s", id, fn, err)
-	    }
 	}
 	fp, err := os.Open(fn)
 	if err != nil {
