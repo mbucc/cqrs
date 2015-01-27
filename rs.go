@@ -112,6 +112,7 @@ type Aggregator interface {
 // processes the command,
 // and persists any events generated
 // by the command processing.
+// BUG(mbucc) Fix error handling.  If store fails to save, command has already been processed.
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if processor, ok := aggregators[t]; ok {
