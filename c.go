@@ -1,4 +1,8 @@
 // Package cqrs provides a command-query responsibility separation library.
+//
+// This is currently a work in progress,
+// see the Bugs section of http://godoc.org/github.com/mbucc/cqrs
+// for what needs to be finished.
 // 
 // Register your Commands, EventListeners, and EventStore
 // and start sending commands.
