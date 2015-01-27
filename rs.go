@@ -70,7 +70,7 @@ func RegisterCommand(c Command, a Aggregator) {
 	aggregators[t] = makeProcessor(a)
 }
 
-// RegisterEventListenerss associates one or more listeners
+// RegisterEventListeners associates one or more listeners
 // with an event type.
 func RegisterEventListeners(e Event, a ...EventListener) {
 	if e == nil {
@@ -88,7 +88,7 @@ func RegisterEventListeners(e Event, a ...EventListener) {
 	listeners[t] = append(listeners[t], a...)
 }
 
-// RegisterEventStore defines how we want to persiste Events.
+// RegisterEventStore defines how to persist Events.
 func RegisterEventStore(es EventStorer) {
 	if es == nil {
 		panic("cqrs: can't register nil EventStorer.")
@@ -107,11 +107,11 @@ type Aggregator interface {
 	ApplyEvents([]Event)
 }
 
-// Instantiate aggregate associated with this command,
-// load all events we've already stored for this aggregate,
-// process the command,
-// and persist any events that were generated
-// as a result of the command processing.
+// SendCommand instantiates the aggregate associated with this command,
+// loads events we've stored for this aggregate,
+// processes the command,
+// and persists any events generated
+// by the command processing.
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if processor, ok := aggregators[t]; ok {

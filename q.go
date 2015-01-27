@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-// An event is something that happened
+// An Event is something that happened
 // as a result of a command;
 // for example, FaceSlapped.
 type Event interface {
@@ -20,7 +20,7 @@ type EventListener interface {
 	apply(e Event) error
 }
 
-// An EventStorer is an interfaces that defines the methods
+// An EventStorer is an interface that defines the methods
 // that persist events
 type EventStorer interface {
 	LoadEventsFor(AggregateID) ([]Event, error)
