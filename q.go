@@ -29,10 +29,12 @@ type EventStorer interface {
 // It minimally satisfies the interface.
 type NullEventStorer struct {}
 
+// LoadEventsFor in the null EventStorer returns an empty array.
 func (es *NullEventStorer) LoadEventsFor(id AggregateID) ([]Event, error) {
 	return []Event{}, nil
 }
 
+// SaveEventsFor in the null EventStorer doesn't save anything.
 func (es *NullEventStorer) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
 	return nil
 }
@@ -46,6 +48,18 @@ type fileSystemEventStorer struct {
 	eventTypes []Event
 }
 
+// NewFileSystemEventStorer creates an EventStorer that persists to the file system.
+//
+// There is one file created per AggregateID,
+// and the events are stored in the order generated.
+//
+// When creating a file system EventStorer,
+// you must pass in an array 
+// of all concrete event types 
+// that have been or will be persisted,
+// as it uses encoding/gob 
+// to restore the data to an array
+// Event interfaces.
 func NewFileSystemEventStorer(rootdir string, types []Event)  *fileSystemEventStorer {
 	fes := new(fileSystemEventStorer)
 	fes.rootdir = rootdir
