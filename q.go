@@ -63,6 +63,7 @@ type fileSystemEventStorer struct {
 // to restore the data to an array
 // Event interfaces.
 // BUG(mbucc) Only persists newly generated events!
+// BUG(mbucc) Needs conflict detection (check events on disk match loaded list).
 func NewFileSystemEventStorer(rootdir string, types []Event)  *fileSystemEventStorer {
 	fes := new(fileSystemEventStorer)
 	fes.rootdir = rootdir
