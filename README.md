@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/github.com/mbucc/cqrs?status.svg)](https://godoc.org/github.com/mbucc/cqrs)
+
 Convert Edument's [EDUM] command-query responsibility separation (CQRS) kit into Go.
 
 See https://github on the CQRS designcom/mbucc/cqrs/wiki for more information
