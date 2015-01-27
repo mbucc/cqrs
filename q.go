@@ -103,8 +103,8 @@ func (es *fileSystemEventStorer) SaveEventsFor(id AggregateID, loaded []Event, r
 	tmpfn := fn + ".tmp"
 
 	// O_CREATE | O_EXCL is atomic (at least on POSIX systems)
-	// so it's a way of ensuring only one goroutine
-	// ever updates this aggregate.
+	// so it ensures only one goroutine
+	// ever updates this aggregate at a time.
 	fp, err := os.OpenFile(tmpfn, os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("SaveEventsFor(%v): can't open '%s', %s", id, fn, err)
