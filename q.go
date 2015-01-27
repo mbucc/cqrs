@@ -62,7 +62,6 @@ type fileSystemEventStorer struct {
 // as it uses encoding/gob 
 // to restore the data to an array
 // Event interfaces.
-// BUG(mbucc) Only persists newly generated events!
 // BUG(mbucc) Needs conflict detection (check events on disk match loaded list).
 func NewFileSystemEventStorer(rootdir string, types []Event)  *fileSystemEventStorer {
 	fes := new(fileSystemEventStorer)
@@ -111,7 +110,7 @@ func (es *fileSystemEventStorer) SaveEventsFor(id AggregateID, loaded []Event, r
 		return fmt.Errorf("SaveEventsFor(%v): can't open '%s', %s", id, fn, err)
 	}
 	defer fp.Close()
-	if err := gob.NewEncoder(fp).Encode(result); err != nil {
+	if err := gob.NewEncoder(fp).Encode(append(loaded, result...)); err != nil {
 		return fmt.Errorf("SaveEventsFor(%v): can't encode to '%s', %s", id, tmpfn, err)
 	}
 	if err := os.Rename(tmpfn, fn); err != nil {

@@ -2,7 +2,7 @@ package cqrs
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
-//	"reflect"
+	"os"
 	"testing"
 )
 
@@ -127,7 +127,11 @@ func TestFileSystemEventStorer(t *testing.T) {
 			events, err := store.LoadEventsFor(aggid)
 			So(len(events), ShouldEqual, 1)
 		})
+		Reset(func() {
+			os.Remove("/tmp/aggregate1.gob")
+		})
 	})
+
 }
 
 func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
@@ -152,6 +156,9 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 			So(err, ShouldEqual, nil)
 			events, err = store.LoadEventsFor(aggid)
 			So(len(events), ShouldEqual, 2)
+			})
+		Reset(func() {
+			os.Remove("/tmp/aggregate1.gob")
 		})
 	})
 }
