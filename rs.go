@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 )
 
 // A commandProcessor accepts or rejects a command.
@@ -34,7 +35,9 @@ func makeProcessor(agg Aggregator) commandProcessor {
 		var err error
 		var triesLeft int = 3
 
-		if ! c.SupportsRollback() {
+		if c.SupportsRollback() {
+			c.BeginTransaction()
+		} else {
 			triesLeft = 1
 		}
 
@@ -64,6 +67,8 @@ func makeProcessor(agg Aggregator) commandProcessor {
 					if _, ok := err.(*ErrConcurrency) ; ok {
 						if triesLeft > 1 {
 							err = nil
+							c.Rollback()
+							time.Sleep(250 * time.Millisecond)
 						}
 					}
 				}
@@ -76,6 +81,13 @@ func makeProcessor(agg Aggregator) commandProcessor {
 
 			if err != nil {
 				triesLeft = 0
+			}
+		}
+		if c.SupportsRollback() {
+			if err != nil {
+				c.Rollback()
+			} else {
+				c.Commit()
 			}
 		}
 		return err
