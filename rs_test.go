@@ -32,6 +32,9 @@ func (c *ShoutCommand) Commit() error {
 func (c *ShoutCommand) Rollback() error {
 	return nil
 }
+func (c *ShoutCommand) SupportRollback() bool {
+	return false
+}
 
 type HeardEvent struct {
 	id    AggregateID

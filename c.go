@@ -25,6 +25,7 @@ type AggregateID int
 // misogynistic kind of cafe.
 type Command interface {
 	ID() AggregateID
+	SupportRollback() bool
 	BeginTransaction() error
 	Commit() error
 	Rollback() error
