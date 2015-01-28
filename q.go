@@ -1,6 +1,5 @@
 package cqrs
 
-import "log"
 import (
 	"encoding/gob"
 	"fmt"
@@ -103,11 +102,12 @@ func (es *fileSystemEventStorer) SaveEventsFor(id AggregateID, loaded []Event, r
 	fn := es.aggregateFileName(id)
 	tmpfn := fn + ".tmp"
 
-	currentEvents, err := es.LoadEventsFor(id)
-	if err == nil {
-		log.Println("len(currentEvents) =", len(currentEvents), "len(loaded) =", len(loaded))
+	if currentEvents, err := es.LoadEventsFor(id) ; err == nil {
+		if len(currentEvents) != len(loaded) {
+			return fmt.Errorf("filesystem: concurrency violation for aggregate %v", id)
+		}
 	} else {
-		log.Println("err =", err)
+		return fmt.Errorf("filesystem: can't get current contents of '%s', %s", fn, err)
 	}
 
 	// O_CREATE | O_EXCL is atomic (at least on POSIX systems)

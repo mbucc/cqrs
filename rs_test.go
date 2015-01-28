@@ -86,7 +86,6 @@ type NullEventListener struct{}
 func (h *NullEventListener) apply(e Event) error {
 	return nil
 }
-/*
 
 func TestHandledCommandReturnsEvents(t *testing.T) {
 
@@ -194,7 +193,6 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 	})
 }
 
-*/
 func TestConcurrencyError(t *testing.T) {
 
 	unregisterAll()
