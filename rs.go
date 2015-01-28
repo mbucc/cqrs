@@ -32,22 +32,51 @@ func makeProcessor(agg Aggregator) commandProcessor {
 		var oldEvents []Event
 		var newEvents []Event
 		var err error
+		var triesLeft int = 3
 
-		a := reflect.New(reflect.TypeOf(agg)).Elem().Interface().(Aggregator)
-		oldEvents, err = eventStore.LoadEventsFor(c.ID())
-		if err == nil {
-			a.ApplyEvents(oldEvents)
-			newEvents, err = a.Handle(c)
+		if ! c.SupportsRollback() {
+			triesLeft = 1
 		}
-		if err == nil {
-			for _, event := range newEvents {
-				if err = publishEvent(event); err != nil {
-					break
+
+		for ; triesLeft > 0; triesLeft-- {
+			a := reflect.New(reflect.TypeOf(agg)).Elem().Interface().(Aggregator)
+			oldEvents, err = eventStore.LoadEventsFor(c.ID())
+			if err == nil {
+				a.ApplyEvents(oldEvents)
+				newEvents, err = a.Handle(c)
+			}
+			if err == nil {
+				for _, event := range newEvents {
+					if err = publishEvent(event); err != nil {
+						break
+					}
 				}
 			}
-		}
-		if err == nil {
-			err = eventStore.SaveEventsFor(c.ID(), oldEvents, newEvents)
+			if err == nil {
+				err = eventStore.SaveEventsFor(c.ID(), oldEvents, newEvents)
+
+				// If
+				//	- we got a concurrency error
+				//	- we have retries left
+				// then swallow the error, sleep a little,
+				// then try again.
+				if err != nil {
+					if _, ok := err.(*ErrConcurrency) ; ok {
+						if triesLeft > 1 {
+							err = nil
+						}
+					}
+				}
+			}
+
+			// We only retry when we get a concurrency
+			// error and have retries left.
+			// This case is covered above
+			// when the err set to nil.
+
+			if err != nil {
+				triesLeft = 0
+			}
 		}
 		return err
 	}
@@ -68,10 +97,10 @@ func RegisterCommand(c Command, a Aggregator) {
 	// so that we can instantiate it
 	// in a way that we get to access
 	// it's members in a panic-free way.
-	// 
+	//
 	// If it's a pointer, we can instantiate
 	// but as soon as you try to use an
-	// method on that pointer, 
+	// method on that pointer,
 	// Go panics with a nil pointer exception.
 	if atype.Kind() != reflect.Struct {
 		panic(fmt.Sprintf("cqrs: %v is a %v, not a struct", atype, atype.Kind()))

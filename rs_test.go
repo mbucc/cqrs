@@ -33,7 +33,7 @@ func (c *ShoutCommand) Commit() error {
 func (c *ShoutCommand) Rollback() error {
 	return nil
 }
-func (c *ShoutCommand) SupportRollback() bool {
+func (c *ShoutCommand) SupportsRollback() bool {
 	return c.supportsRollback
 }
 

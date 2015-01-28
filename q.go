@@ -6,6 +6,18 @@ import (
 	"os"
 )
 
+type ErrConcurrency struct {
+	eventCountNow    int
+	eventCountStart int
+	aggregateID      AggregateID
+	newEvents        []Event
+}
+
+func (e *ErrConcurrency) Error() string {
+	return fmt.Sprintf("cqrs: concurrency violation for aggregate id %v, %d (start) != %d (now)",
+		e.aggregateID, e.eventCountStart, e.eventCountNow)
+}
+
 // An Event is something that happened
 // as a result of a command;
 // for example, FaceSlapped.
@@ -29,7 +41,7 @@ type EventStorer interface {
 
 // A NullEventStore is an event storer that neither stores nor restores.
 // It minimally satisfies the interface.
-type NullEventStore struct {}
+type NullEventStore struct{}
 
 // LoadEventsFor in the null EventStorer returns an empty array.
 func (es *NullEventStore) LoadEventsFor(id AggregateID) ([]Event, error) {
@@ -46,7 +58,7 @@ func (es *NullEventStore) SaveEventsFor(id AggregateID, loaded []Event, result [
 // <aggregate_type>_<aggregate_id>.gob
 // and the events are stored as JSON.
 type fileSystemEventStorer struct {
-	rootdir	string
+	rootdir    string
 	eventTypes []Event
 }
 
@@ -56,13 +68,13 @@ type fileSystemEventStorer struct {
 // and the events are stored in the order generated.
 //
 // When creating a file system EventStorer,
-// you must pass in an array 
-// of all concrete event types 
+// you must pass in an array
+// of all concrete event types
 // that have been or will be persisted,
-// as it uses encoding/gob 
+// as it uses encoding/gob
 // to restore the data to an array
 // Event interfaces.
-func NewFileSystemEventStorer(rootdir string, types []Event)  *fileSystemEventStorer {
+func NewFileSystemEventStorer(rootdir string, types []Event) *fileSystemEventStorer {
 	fes := new(fileSystemEventStorer)
 	fes.rootdir = rootdir
 	for _, event := range types {
@@ -70,7 +82,6 @@ func NewFileSystemEventStorer(rootdir string, types []Event)  *fileSystemEventSt
 	}
 	return fes
 }
-
 
 func (es *fileSystemEventStorer) aggregateFileName(id AggregateID) string {
 	return fmt.Sprintf("%s/aggregate%v.gob", es.rootdir, id)
@@ -101,9 +112,10 @@ func (es *fileSystemEventStorer) SaveEventsFor(id AggregateID, loaded []Event, r
 	fn := es.aggregateFileName(id)
 	tmpfn := fn + ".tmp"
 
-	if currentEvents, err := es.LoadEventsFor(id) ; err == nil {
+	if currentEvents, err := es.LoadEventsFor(id); err == nil {
 		if len(currentEvents) != len(loaded) {
-			return fmt.Errorf("filesystem: concurrency violation for aggregate %v", id)
+			return &ErrConcurrency{
+				len(loaded), len(currentEvents), id, result}
 		}
 	} else {
 		return fmt.Errorf("filesystem: can't get current contents of '%s', %s", fn, err)
@@ -112,7 +124,7 @@ func (es *fileSystemEventStorer) SaveEventsFor(id AggregateID, loaded []Event, r
 	// O_CREATE | O_EXCL is atomic (at least on POSIX systems)
 	// so it ensures only one goroutine
 	// ever updates this aggregate at a time.
-	fp, err := os.OpenFile(tmpfn, os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
+	fp, err := os.OpenFile(tmpfn, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("SaveEventsFor(%v): can't open '%s', %s", id, fn, err)
 	}
