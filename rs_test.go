@@ -13,8 +13,9 @@ import (
 var testChannel = make(chan string)
 
 type ShoutCommand struct {
-	id      AggregateID
-	Comment string
+	id               AggregateID
+	Comment          string
+	supportsRollback bool
 }
 
 func (c *ShoutCommand) ID() AggregateID {
@@ -33,7 +34,7 @@ func (c *ShoutCommand) Rollback() error {
 	return nil
 }
 func (c *ShoutCommand) SupportRollback() bool {
-	return false
+	return c.supportsRollback
 }
 
 type HeardEvent struct {
@@ -94,7 +95,7 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 
 	Convey("Given a shout out and a shout out handler", t, func() {
 
-		shout := ShoutCommand{1, "ab"}
+		shout := ShoutCommand{1, "ab", false}
 		h := EchoAggregate{}
 
 		Convey("When the shout out is handled", func() {
@@ -123,7 +124,7 @@ func TestSendCommand(t *testing.T) {
 		Convey("A ShoutCommand should be heard", func() {
 			go func() {
 				Convey("SendCommand should succeed", t, func() {
-					err := SendCommand(&ShoutCommand{1, "hello humanoid"})
+					err := SendCommand(&ShoutCommand{1, "hello humanoid", false})
 					So(err, ShouldEqual, nil)
 				})
 				close(testChannel)
@@ -155,7 +156,7 @@ func TestFileSystemEventStorer(t *testing.T) {
 	Convey("Given an echo handler and two null listeners", t, func() {
 
 		Convey("A ShoutCommand should persist an event", func() {
-			err := SendCommand(&ShoutCommand{aggid, "hello humanoid"})
+			err := SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(aggid)
 			So(len(events), ShouldEqual, 1)
@@ -180,12 +181,12 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 		RegisterCommand(new(ShoutCommand), EchoAggregate{})
 
 		Convey("A ShoutCommand should persist old and new events", func() {
-			err := SendCommand(&ShoutCommand{aggid, "hello humanoid"})
+			err := SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(aggid)
 			So(len(events), ShouldEqual, 1)
 
-			err = SendCommand(&ShoutCommand{aggid, "hello humanoid"})
+			err = SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
 			So(err, ShouldEqual, nil)
 			events, err = store.LoadEventsFor(aggid)
 			So(len(events), ShouldEqual, 2)
@@ -211,8 +212,8 @@ func TestConcurrencyError(t *testing.T) {
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() {
-				Convey("The slow echo should fail", t, func() {
-					err := SendCommand(&ShoutCommand{1, "slow hello humanoid"})
+				Convey("The slow echo should succeed on retry", t, func() {
+					err := SendCommand(&ShoutCommand{1, "slow hello humanoid", false})
 					So(err, ShouldNotEqual, nil)
 				})
 				wg.Done()
@@ -220,7 +221,44 @@ func TestConcurrencyError(t *testing.T) {
 			// Sleep a bit to make sure previous
 			// handler kicks off first.
 			time.Sleep(100 * time.Millisecond)
-			err := SendCommand(&ShoutCommand{1, "hello humanoid"})
+			err := SendCommand(&ShoutCommand{1, "hello humanoid", false})
+			So(err, ShouldEqual, nil)
+			events, err := store.LoadEventsFor(1)
+			So(len(events), ShouldEqual, 1)
+			wg.Wait()
+		})
+		Reset(func() {
+			os.Remove("/tmp/aggregate1.gob")
+			os.Remove("/tmp/aggregate1.gob.tmp")
+		})
+	})
+}
+
+func TestRetryOnConcurrencyError(t *testing.T) {
+
+	unregisterAll()
+
+	Convey("Given a fast/slow echo handler, a null listener, and a file system store", t, func() {
+
+		store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
+		RegisterEventStore(store)
+		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+		RegisterCommand(new(ShoutCommand), SlowDownEchoAggregate{})
+
+		Convey("Given one slow and then one fast echo", func() {
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				Convey("The slow echo should succeed on retry", t, func() {
+					err := SendCommand(&ShoutCommand{1, "slow hello humanoid", true})
+					So(err, ShouldEqual, nil)
+				})
+				wg.Done()
+			}()
+			// Sleep a bit to make sure previous
+			// handler kicks off first.
+			time.Sleep(100 * time.Millisecond)
+			err := SendCommand(&ShoutCommand{1, "hello humanoid", false})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(1)
 			So(len(events), ShouldEqual, 1)
