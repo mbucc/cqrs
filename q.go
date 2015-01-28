@@ -1,5 +1,6 @@
 package cqrs
 
+import "log"
 import (
 	"encoding/gob"
 	"fmt"
@@ -101,6 +102,13 @@ func (es *fileSystemEventStorer) LoadEventsFor(id AggregateID) ([]Event, error) 
 func (es *fileSystemEventStorer) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
 	fn := es.aggregateFileName(id)
 	tmpfn := fn + ".tmp"
+
+	currentEvents, err := es.LoadEventsFor(id)
+	if err == nil {
+		log.Println("len(currentEvents) =", len(currentEvents), "len(loaded) =", len(loaded))
+	} else {
+		log.Println("err =", err)
+	}
 
 	// O_CREATE | O_EXCL is atomic (at least on POSIX systems)
 	// so it ensures only one goroutine

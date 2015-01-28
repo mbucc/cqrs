@@ -2,7 +2,10 @@ package cqrs
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
+	"log"
 	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -42,32 +45,33 @@ func (e *HeardEvent) ID() AggregateID {
 type EchoAggregate struct {
 }
 
-func (eh *EchoAggregate) Handle(c Command) (a []Event, err error) {
+func (eh EchoAggregate) Handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
 	c1 := c.(*ShoutCommand)
 	a[0] = &HeardEvent{c1.ID(), c1.Comment}
 	return a, nil
 }
 
-func (eh *EchoAggregate) ApplyEvents([]Event) {
+func (eh EchoAggregate) ApplyEvents([]Event) {
 }
 
-type SlowThenFastEchoAggregate struct {
-	toggle int
+type SlowDownEchoAggregate struct {
 }
 
-func (h *SlowThenFastEchoAggregate) Handle(c Command) (a []Event, err error) {
-	h.toggle += 1
-	if h.toggle%2 != 0 {
+func (h SlowDownEchoAggregate) Handle(c Command) (a []Event, err error) {
+	log.Println("SlowDownEchoAggregate.Handle: start with", c)
+	a = make([]Event, 1)
+	c1 := c.(*ShoutCommand)
+	if strings.HasPrefix(c1.Comment, "slow") {
+		log.Println("sleeping ...")
 		time.Sleep(250 * time.Millisecond)
 	}
-	a = make([]Event, 1)
-	c1 := c.(*ShoutCommand)
 	a[0] = &HeardEvent{c1.ID(), c1.Comment}
+	log.Println("SlowDownEchoAggregate done with", c1.Comment)
 	return a, nil
 }
 
-func (eh *SlowThenFastEchoAggregate) ApplyEvents([]Event) {
+func (h SlowDownEchoAggregate) ApplyEvents([]Event) {
 }
 
 type ChannelWriterEventListener struct{}
@@ -82,6 +86,7 @@ type NullEventListener struct{}
 func (h *NullEventListener) apply(e Event) error {
 	return nil
 }
+/*
 
 func TestHandledCommandReturnsEvents(t *testing.T) {
 
@@ -111,7 +116,7 @@ func TestSendCommand(t *testing.T) {
 		RegisterEventListeners(new(HeardEvent),
 			new(ChannelWriterEventListener),
 			new(ChannelWriterEventListener))
-		RegisterCommand(new(ShoutCommand), new(EchoAggregate))
+		RegisterCommand(new(ShoutCommand), EchoAggregate{})
 		RegisterEventStore(new(NullEventStore))
 		Convey("A ShoutCommand should be heard", func() {
 			go func() {
@@ -143,7 +148,7 @@ func TestFileSystemEventStorer(t *testing.T) {
 	store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
 	RegisterEventStore(store)
 	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-	RegisterCommand(new(ShoutCommand), new(EchoAggregate))
+	RegisterCommand(new(ShoutCommand), EchoAggregate{})
 
 	Convey("Given an echo handler and two null listeners", t, func() {
 
@@ -170,7 +175,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 		store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
 		RegisterEventStore(store)
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-		RegisterCommand(new(ShoutCommand), new(EchoAggregate))
+		RegisterCommand(new(ShoutCommand), EchoAggregate{})
 
 		Convey("A ShoutCommand should persist old and new events", func() {
 			err := SendCommand(&ShoutCommand{aggid, "hello humanoid"})
@@ -189,6 +194,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 	})
 }
 
+*/
 func TestConcurrencyError(t *testing.T) {
 
 	unregisterAll()
@@ -198,19 +204,26 @@ func TestConcurrencyError(t *testing.T) {
 		store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
 		RegisterEventStore(store)
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-		RegisterCommand(new(ShoutCommand), new(EchoAggregate))
+		RegisterCommand(new(ShoutCommand), SlowDownEchoAggregate{})
 
 		Convey("Given one slow and then one fast echo", func() {
+			var wg sync.WaitGroup
+			wg.Add(1)
 			go func() {
 				Convey("The slow echo should fail", t, func() {
-					err := SendCommand(&ShoutCommand{1, "hello humanoid"})
+					err := SendCommand(&ShoutCommand{1, "slow hello humanoid"})
 					So(err, ShouldNotEqual, nil)
 				})
+				wg.Done()
 			}()
+			// Sleep a bit to make sure previous
+			// handler kicks off first.
+			time.Sleep(100 * time.Millisecond)
 			err := SendCommand(&ShoutCommand{1, "hello humanoid"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(1)
 			So(len(events), ShouldEqual, 1)
+			wg.Wait()
 		})
 		Reset(func() {
 			os.Remove("/tmp/aggregate1.gob")
