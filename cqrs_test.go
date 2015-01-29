@@ -149,8 +149,8 @@ func TestFileSystemEventStorer(t *testing.T) {
 
 	aggid := AggregateID(1)
 	store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
-	RegisterEventStore(store)
 	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+	RegisterEventStore(store)
 	RegisterCommand(new(ShoutCommand), EchoAggregate{})
 
 	Convey("Given an echo handler and two null listeners", t, func() {
@@ -176,8 +176,8 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 
 		aggid := AggregateID(1)
 		store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
-		RegisterEventStore(store)
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+		RegisterEventStore(store)
 		RegisterCommand(new(ShoutCommand), EchoAggregate{})
 
 		Convey("A ShoutCommand should persist old and new events", func() {
@@ -204,8 +204,8 @@ func TestConcurrencyError(t *testing.T) {
 	Convey("Given a fast/slow echo handler, a null listener, and a file system store", t, func() {
 
 		store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
-		RegisterEventStore(store)
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+		RegisterEventStore(store)
 		RegisterCommand(new(ShoutCommand), SlowDownEchoAggregate{})
 
 		Convey("Given one slow and then one fast echo", func() {
@@ -241,8 +241,8 @@ func TestRetryOnConcurrencyError(t *testing.T) {
 	Convey("Given a fast/slow echo handler, a null listener, and a file system store", t, func() {
 
 		store := NewFileSystemEventStorer("/tmp", []Event{&HeardEvent{}})
-		RegisterEventStore(store)
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+		RegisterEventStore(store)
 		RegisterCommand(new(ShoutCommand), SlowDownEchoAggregate{})
 
 		Convey("Given one slow and then one fast echo", func() {

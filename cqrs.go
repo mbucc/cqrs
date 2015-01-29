@@ -110,9 +110,19 @@ func RegisterCommand(c Command, a Aggregator) {
 
 // RegisterEventListeners associates one or more listeners
 // with an event type.
+//
+// You cannot register another event listener
+// after the event store is registered.
+// Most event stores need the full set of
+// event types to be able to reconstruct
+// serialized concrete event types into
+// a list of Event interface instances.
 func RegisterEventListeners(e Event, a ...EventListener) {
 	if e == nil {
 		panic("cqrs: can't register a nil Event to listeners")
+	}
+	if eventStore != nil {
+		panic("cqrs: cannot register event listeners after event store has been registered.")
 	}
 	t := reflect.TypeOf(e)
 	if _, exists := listeners[t]; !exists {
