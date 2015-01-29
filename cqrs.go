@@ -36,6 +36,17 @@ type AggregateID int
 // For example, MoreDrinksWench!
 // might be a command in a medieval
 // misogynistic kind of cafe.
+//
+// If cqrs encounters a concurrency error
+// and your Command implementation supports
+// rollbacks, cqrs will try to process the
+// command a total of three times before
+// it fails.
+//
+// A concurrency error occurs if two of the
+// same command occur at the same time; the
+// second command updates the event store
+// before the first one does.
 type Command interface {
 	ID() AggregateID
 	SupportsRollback() bool
@@ -112,12 +123,9 @@ func RegisterCommand(c Command, a Aggregator) {
 // RegisterEventListeners associates one or more eventListeners
 // with an event type.
 //
-// You cannot register another event listener
+// It is an error to register an event listener
 // after the event store is registered.
-// Most event stores need the full set of
-// event types to be able to reconstruct
-// serialized concrete event types into
-// a list of Event interface instances.
+// Doing so will cause this method to panic.
 func RegisterEventListeners(e Event, a ...EventListener) {
 	if e == nil {
 		panic("cqrs: can't register a nil Event to eventListeners")
@@ -138,7 +146,8 @@ func RegisterEventListeners(e Event, a ...EventListener) {
 	registeredEvents = append(registeredEvents, e)
 }
 
-// RegisterEventStore defines how to persist Events.
+// RegisterEventStore registers which event store to use
+// for persisting and loading events.
 func RegisterEventStore(es EventStorer) {
 	if es == nil {
 		panic("cqrs: can't register nil EventStorer.")
