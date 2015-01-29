@@ -35,6 +35,7 @@ type EventListener interface {
 // An EventStorer is an interface that defines the methods
 // that persist events
 type EventStorer interface {
+	SetEventTypes([]Event)
 	LoadEventsFor(AggregateID) ([]Event, error)
 	SaveEventsFor(AggregateID, []Event, []Event) error
 }
@@ -53,41 +54,34 @@ func (es *NullEventStore) SaveEventsFor(id AggregateID, loaded []Event, result [
 	return nil
 }
 
-// Store events in file system.
-// Events are stored in a file named
-// <aggregate_type>_<aggregate_id>.gob
-// and the events are stored as JSON.
-type fileSystemEventStorer struct {
-	rootdir    string
-	eventTypes []Event
+// SetEventTypes does nothing in the null event store.
+func (es *NullEventStore) SetEventTypes(a []Event) {
 }
 
-// NewFileSystemEventStorer creates an EventStorer that persists to the file system.
+// Store events in file system.
+// Events are stored in a file named
+// aggregate<aggregate_id>.gob
+// and the events are stored as gob.
 //
-// There is one file created per AggregateID,
-// and the events are stored in the order generated.
-//
-// When creating a file system EventStorer,
-// you must pass in an array
-// of all concrete event types
-// that have been or will be persisted,
-// as it uses encoding/gob
-// to restore the data to an array
-// Event interfaces.
-func NewFileSystemEventStorer(rootdir string, types []Event) *fileSystemEventStorer {
-	fes := new(fileSystemEventStorer)
-	fes.rootdir = rootdir
+// BUG(mbucc) File names will collide if two different aggregate types have the same ID.
+type FileSystemEventStore struct {
+	rootdir    string
+}
+
+// Register event types so we can reconsitute into an interface.
+// Will panic if the same eventype appears more than once.
+func (fes *FileSystemEventStore) SetEventTypes(types []Event) {
 	for _, event := range types {
 		gob.Register(event)
 	}
-	return fes
 }
 
-func (es *fileSystemEventStorer) aggregateFileName(id AggregateID) string {
+func (es *FileSystemEventStore) aggregateFileName(id AggregateID) string {
 	return fmt.Sprintf("%s/aggregate%v.gob", es.rootdir, id)
 }
 
-func (es *fileSystemEventStorer) LoadEventsFor(id AggregateID) ([]Event, error) {
+// Load events from disk for the given aggregate.
+func (es *FileSystemEventStore) LoadEventsFor(id AggregateID) ([]Event, error) {
 	var events []Event
 	fn := es.aggregateFileName(id)
 	if _, err := os.Stat(fn); err != nil {
@@ -108,7 +102,8 @@ func (es *fileSystemEventStorer) LoadEventsFor(id AggregateID) ([]Event, error) 
 	return events, nil
 }
 
-func (es *fileSystemEventStorer) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
+// SaveEventsFor persists the events to disk for the given Aggregate.
+func (es *FileSystemEventStore) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
 	fn := es.aggregateFileName(id)
 	tmpfn := fn + ".tmp"
 

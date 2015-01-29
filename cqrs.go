@@ -22,8 +22,9 @@ import (
 )
 
 var aggregators = make(map[reflect.Type]commandProcessor)
-var listeners = make(map[reflect.Type][]EventListener)
+var eventListeners = make(map[reflect.Type][]EventListener)
 var eventStore EventStorer
+var registeredEvents []Event
 
 // An AggregateID is a unique identifier for an Aggregator instance.
 //
@@ -74,7 +75,7 @@ type commandProcessor func(c Command) error
 // For tests.
 func unregisterAll() {
 	aggregators = make(map[reflect.Type]commandProcessor)
-	listeners = make(map[reflect.Type][]EventListener)
+	eventListeners = make(map[reflect.Type][]EventListener)
 	eventStore = nil
 }
 
@@ -108,7 +109,7 @@ func RegisterCommand(c Command, a Aggregator) {
 	aggregators[t] = makeProcessor(a)
 }
 
-// RegisterEventListeners associates one or more listeners
+// RegisterEventListeners associates one or more eventListeners
 // with an event type.
 //
 // You cannot register another event listener
@@ -119,21 +120,22 @@ func RegisterCommand(c Command, a Aggregator) {
 // a list of Event interface instances.
 func RegisterEventListeners(e Event, a ...EventListener) {
 	if e == nil {
-		panic("cqrs: can't register a nil Event to listeners")
+		panic("cqrs: can't register a nil Event to eventListeners")
 	}
 	if eventStore != nil {
-		panic("cqrs: cannot register event listeners after event store has been registered.")
+		panic("cqrs: cannot register event eventListeners after event store has been registered.")
 	}
 	t := reflect.TypeOf(e)
-	if _, exists := listeners[t]; !exists {
-		listeners[t] = []EventListener{}
+	if _, exists := eventListeners[t]; !exists {
+		eventListeners[t] = []EventListener{}
 	}
-	for _, x := range listeners {
+	for _, x := range eventListeners {
 		if x == nil {
 			panic("cqrs: can't register a nil Listener to an event")
 		}
 	}
-	listeners[t] = append(listeners[t], a...)
+	eventListeners[t] = append(eventListeners[t], a...)
+	registeredEvents = append(registeredEvents, e)
 }
 
 // RegisterEventStore defines how to persist Events.
@@ -142,6 +144,7 @@ func RegisterEventStore(es EventStorer) {
 		panic("cqrs: can't register nil EventStorer.")
 	}
 	eventStore = es
+	eventStore.SetEventTypes(registeredEvents)
 }
 
 // SendCommand instantiates the aggregate associated with this command,
@@ -168,7 +171,7 @@ func SendCommand(c Command) error {
 // the listener can successfully do it's thing.
 func publishEvent(e Event) error {
 	t := reflect.TypeOf(e)
-	if a, ok := listeners[t]; ok {
+	if a, ok := eventListeners[t]; ok {
 		for _, listener := range a {
 			if err := listener.apply(e); err != nil {
 				return err
