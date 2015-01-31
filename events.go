@@ -4,18 +4,19 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type ErrConcurrency struct {
 	eventCountNow    int
 	eventCountStart int
-	aggregateID      AggregateID
+	aggregate Aggregator
 	newEvents        []Event
 }
 
 func (e *ErrConcurrency) Error() string {
-	return fmt.Sprintf("cqrs: concurrency violation for aggregate id %v, %d (start) != %d (now)",
-		e.aggregateID, e.eventCountStart, e.eventCountNow)
+	return fmt.Sprintf("cqrs: concurrency violation for aggregate %v, %d (start) != %d (now)",
+		e.aggregate, e.eventCountStart, e.eventCountNow)
 }
 
 // An Event is something that happened
@@ -36,8 +37,8 @@ type EventListener interface {
 // that persist events
 type EventStorer interface {
 	SetEventTypes([]Event)
-	LoadEventsFor(AggregateID) ([]Event, error)
-	SaveEventsFor(AggregateID, []Event, []Event) error
+	LoadEventsFor(Aggregator) ([]Event, error)
+	SaveEventsFor(Aggregator, []Event, []Event) error
 }
 
 // A NullEventStore is an event storer that neither stores nor restores.
@@ -45,12 +46,12 @@ type EventStorer interface {
 type NullEventStore struct{}
 
 // LoadEventsFor in the null EventStorer returns an empty array.
-func (es *NullEventStore) LoadEventsFor(id AggregateID) ([]Event, error) {
+func (es *NullEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 	return []Event{}, nil
 }
 
 // SaveEventsFor in the null EventStorer doesn't save anything.
-func (es *NullEventStore) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
+func (es *NullEventStore) SaveEventsFor(agg Aggregator, loaded []Event, result []Event) error {
 	return nil
 }
 
@@ -63,7 +64,7 @@ func (es *NullEventStore) SetEventTypes(a []Event) {
 // aggregate<aggregate_id>.gob
 // and the events are stored as gob.
 //
-// BUG(mbucc) File names will collide if two different aggregate types have the same ID.
+// (mbucc) File names will collide if two different aggregate types have the same ID.
 type FileSystemEventStore struct {
 	rootdir    string
 }
@@ -76,41 +77,45 @@ func (fes *FileSystemEventStore) SetEventTypes(types []Event) {
 	}
 }
 
-func (es *FileSystemEventStore) aggregateFileName(id AggregateID) string {
-	return fmt.Sprintf("%s/aggregate%v.gob", es.rootdir, id)
+func (es *FileSystemEventStore) FileNameFor(agg Aggregator) string {
+	t :=  fmt.Sprintf("%T", agg)
+	if strings.HasPrefix(t, "*") {
+		t = t[1:]
+	}
+	return fmt.Sprintf("%s/%v%v.gob", es.rootdir, t, agg.ID())
 }
 
 // Load events from disk for the given aggregate.
-func (es *FileSystemEventStore) LoadEventsFor(id AggregateID) ([]Event, error) {
+func (es *FileSystemEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 	var events []Event
-	fn := es.aggregateFileName(id)
+	fn := es.FileNameFor(agg)
 	if _, err := os.Stat(fn); err != nil {
 		if os.IsNotExist(err) {
 			return events, nil
 		}
-		return nil, fmt.Errorf("LoadEventsFor(%v): can't stat '%s', %s", id, fn, err)
+		return nil, fmt.Errorf("LoadEventsFor(%v): can't stat '%s', %s", agg, fn, err)
 	}
 	fp, err := os.Open(fn)
 	if err != nil {
-		return nil, fmt.Errorf("LoadEventsFor(%v): can't open '%s', %s", id, fn, err)
+		return nil, fmt.Errorf("LoadEventsFor(%v): can't open '%s', %s", agg, fn, err)
 	}
 	defer fp.Close()
 	decoder := gob.NewDecoder(fp)
 	if err := decoder.Decode(&events); err != nil {
-		return nil, fmt.Errorf("LoadEventsFor(%v): can't decode '%s', %s", id, fn, err)
+		return nil, fmt.Errorf("LoadEventsFor(%v): can't decode '%s', %s", agg, fn, err)
 	}
 	return events, nil
 }
 
 // SaveEventsFor persists the events to disk for the given Aggregate.
-func (es *FileSystemEventStore) SaveEventsFor(id AggregateID, loaded []Event, result []Event) error {
-	fn := es.aggregateFileName(id)
+func (es *FileSystemEventStore) SaveEventsFor(agg Aggregator, loaded []Event, result []Event) error {
+	fn := es.FileNameFor(agg)
 	tmpfn := fn + ".tmp"
 
-	if currentEvents, err := es.LoadEventsFor(id); err == nil {
+	if currentEvents, err := es.LoadEventsFor(agg); err == nil {
 		if len(currentEvents) != len(loaded) {
 			return &ErrConcurrency{
-				len(loaded), len(currentEvents), id, result}
+				len(loaded), len(currentEvents), agg, result}
 		}
 	} else {
 		return fmt.Errorf("filesystem: can't get current contents of '%s', %s", fn, err)
@@ -121,14 +126,14 @@ func (es *FileSystemEventStore) SaveEventsFor(id AggregateID, loaded []Event, re
 	// ever updates this aggregate at a time.
 	fp, err := os.OpenFile(tmpfn, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("SaveEventsFor(%v): can't open '%s', %s", id, fn, err)
+		return fmt.Errorf("SaveEventsFor(%v): can't open '%s', %s", agg, fn, err)
 	}
 	defer fp.Close()
 	if err := gob.NewEncoder(fp).Encode(append(loaded, result...)); err != nil {
-		return fmt.Errorf("SaveEventsFor(%v): can't encode to '%s', %s", id, tmpfn, err)
+		return fmt.Errorf("SaveEventsFor(%v): can't encode to '%s', %s", agg, tmpfn, err)
 	}
 	if err := os.Rename(tmpfn, fn); err != nil {
-		return fmt.Errorf("SaveEventsFor(%v): rename failed '%s'-->'%s', %s", id, tmpfn, fn, err)
+		return fmt.Errorf("SaveEventsFor(%v): rename failed '%s'-->'%s', %s", agg, tmpfn, fn, err)
 	}
 	return nil
 }

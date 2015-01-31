@@ -14,6 +14,7 @@
 // id: the AggregateID.
 package cqrs
 
+
 import (
 	"errors"
 	"fmt"
@@ -62,8 +63,10 @@ type Command interface {
 // that one (or more) of you business
 // rules are kept.
 type Aggregator interface {
+	ID() AggregateID
 	CommandHandler
 	ApplyEvents([]Event)
+	New(AggregateID) Aggregator
 }
 
 // CommandHandler is the interface
@@ -208,8 +211,8 @@ func makeProcessor(agg Aggregator) commandProcessor {
 		}
 
 		for ; triesLeft > 0; triesLeft-- {
-			a := reflect.New(reflect.TypeOf(agg)).Elem().Interface().(Aggregator)
-			oldEvents, err = eventStore.LoadEventsFor(c.ID())
+			a := agg.New(c.ID())
+			oldEvents, err = eventStore.LoadEventsFor(a)
 			if err == nil {
 				a.ApplyEvents(oldEvents)
 				newEvents, err = a.Handle(c)
@@ -222,7 +225,7 @@ func makeProcessor(agg Aggregator) commandProcessor {
 				}
 			}
 			if err == nil {
-				err = eventStore.SaveEventsFor(c.ID(), oldEvents, newEvents)
+				err = eventStore.SaveEventsFor(a, oldEvents, newEvents)
 
 				// If
 				//	- we got a concurrency error

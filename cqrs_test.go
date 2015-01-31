@@ -2,7 +2,6 @@ package cqrs
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -47,6 +46,7 @@ func (e *HeardEvent) ID() AggregateID {
 }
 
 type EchoAggregate struct {
+	id  AggregateID
 }
 
 func (eh EchoAggregate) Handle(c Command) (a []Event, err error) {
@@ -56,22 +56,37 @@ func (eh EchoAggregate) Handle(c Command) (a []Event, err error) {
 	return a, nil
 }
 
+func (eh EchoAggregate) ID() AggregateID {
+	return eh.id
+}
+
+func (eh EchoAggregate) New(id AggregateID) Aggregator {
+	return &EchoAggregate{id}
+}
+
 func (eh EchoAggregate) ApplyEvents([]Event) {
 }
 
 type SlowDownEchoAggregate struct {
+	id	AggregateID
 }
 
+func (h SlowDownEchoAggregate) ID() AggregateID {
+	return h.id
+}
+func (eh SlowDownEchoAggregate) New(id AggregateID) Aggregator {
+	return &SlowDownEchoAggregate{id}
+}
+
+
+
 func (h SlowDownEchoAggregate) Handle(c Command) (a []Event, err error) {
-	log.Println("SlowDownEchoAggregate.Handle: start with", c)
 	a = make([]Event, 1)
 	c1 := c.(*ShoutCommand)
 	if strings.HasPrefix(c1.Comment, "slow") {
-		log.Println("sleeping ...")
 		time.Sleep(250 * time.Millisecond)
 	}
 	a[0] = &HeardEvent{c1.ID(), c1.Comment}
-	log.Println("SlowDownEchoAggregate done with", c1.Comment)
 	return a, nil
 }
 
@@ -148,6 +163,7 @@ func TestFileSystemEventStore(t *testing.T) {
 	unregisterAll()
 
 	aggid := AggregateID(1)
+	agg := EchoAggregate{aggid}
 	store := &FileSystemEventStore{"/tmp"}
 	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 	RegisterEventStore(store)
@@ -158,14 +174,14 @@ func TestFileSystemEventStore(t *testing.T) {
 		Convey("A ShoutCommand should persist an event", func() {
 			err := SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
 			So(err, ShouldEqual, nil)
-			events, err := store.LoadEventsFor(aggid)
+			events, err := store.LoadEventsFor(agg)
+			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 1)
 		})
 		Reset(func() {
-			os.Remove("/tmp/aggregate1.gob")
+			os.Remove(store.FileNameFor(agg))
 		})
 	})
-
 }
 
 func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
@@ -175,6 +191,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 	Convey("Given an echo handler and two null listeners", t, func() {
 
 		aggid := AggregateID(1)
+	agg := EchoAggregate{aggid}
 		store := &FileSystemEventStore{"/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
@@ -183,16 +200,16 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 		Convey("A ShoutCommand should persist old and new events", func() {
 			err := SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
 			So(err, ShouldEqual, nil)
-			events, err := store.LoadEventsFor(aggid)
+			events, err := store.LoadEventsFor(agg)
 			So(len(events), ShouldEqual, 1)
 
 			err = SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
 			So(err, ShouldEqual, nil)
-			events, err = store.LoadEventsFor(aggid)
+			events, err = store.LoadEventsFor(agg)
 			So(len(events), ShouldEqual, 2)
 		})
 		Reset(func() {
-			os.Remove("/tmp/aggregate1.gob")
+			os.Remove(store.FileNameFor(agg))
 		})
 	})
 }
@@ -207,6 +224,7 @@ func TestConcurrencyError(t *testing.T) {
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommand(new(ShoutCommand), SlowDownEchoAggregate{})
+		agg := SlowDownEchoAggregate{1}
 
 		Convey("Given one slow and then one fast echo", func() {
 			var wg sync.WaitGroup
@@ -223,13 +241,13 @@ func TestConcurrencyError(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 			err := SendCommand(&ShoutCommand{1, "hello humanoid", false})
 			So(err, ShouldEqual, nil)
-			events, err := store.LoadEventsFor(1)
+			events, err := store.LoadEventsFor(agg)
 			So(len(events), ShouldEqual, 1)
 			wg.Wait()
 		})
 		Reset(func() {
-			os.Remove("/tmp/aggregate1.gob")
-			os.Remove("/tmp/aggregate1.gob.tmp")
+			os.Remove(store.FileNameFor(agg))
+			os.Remove(store.FileNameFor(agg) + ".tmp")
 		})
 	})
 }
@@ -244,6 +262,8 @@ func TestRetryOnConcurrencyError(t *testing.T) {
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommand(new(ShoutCommand), SlowDownEchoAggregate{})
+
+		agg := SlowDownEchoAggregate{1}
 
 		Convey("Given one slow and then one fast echo", func() {
 			var wg sync.WaitGroup
@@ -260,13 +280,13 @@ func TestRetryOnConcurrencyError(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 			err := SendCommand(&ShoutCommand{1, "hello humanoid", false})
 			So(err, ShouldEqual, nil)
-			events, err := store.LoadEventsFor(1)
+			events, err := store.LoadEventsFor(agg)
 			So(len(events), ShouldEqual, 1)
 			wg.Wait()
 		})
 		Reset(func() {
-			os.Remove("/tmp/aggregate1.gob")
-			os.Remove("/tmp/aggregate1.gob.tmp")
+			os.Remove(store.FileNameFor(agg))
+			os.Remove(store.FileNameFor(agg) + ".tmp")
 		})
 	})
 }
