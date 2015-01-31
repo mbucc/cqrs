@@ -116,9 +116,9 @@ func RegisterCommandAggregator(c Command, a Aggregator) {
 // RegisterEventListeners associates one or more eventListeners
 // with an event type.
 //
-// It is an error to register an event listener
-// after the event store is registered.
-// Doing so will cause this method to panic.
+// If RegisterEventListeners is called
+// after the event store is registered
+// will cause a panic.
 func RegisterEventListeners(e Event, a ...EventListener) {
 	if e == nil {
 		panic("cqrs: can't register a nil Event to eventListeners")
@@ -139,7 +139,11 @@ func RegisterEventListeners(e Event, a ...EventListener) {
 	registeredEvents = append(registeredEvents, e)
 }
 
-// RegisterEventStore registers which event store to use
+// RegisterEventStore registers the event store to use
+// The library assumes that the event store
+// needs to know the full set of event types
+// when it is created, so the event store
+// must be registered after all event listeners.
 // for persisting and loading events.
 func RegisterEventStore(es EventStorer) {
 	if es == nil {
@@ -244,7 +248,7 @@ func processCommand(c Command, agg Aggregator) error {
 // SendCommand instantiates the aggregate associated with this command,
 // loads events we've stored for this aggregate,
 // processes the command,
-// and persists any events generated
+// publishes and persists any events generated
 // by the command processing.
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
