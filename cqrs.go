@@ -202,14 +202,17 @@ func RegisterEventStore(es EventStorer) {
 // the listener can successfully do it's thing.
 func publishEvent(e Event) error {
 	t := reflect.TypeOf(e)
+	e.SetSequenceNumber(atomic.AddUint64(&eventSequenceNumber, 1))
 	if a, ok := eventListeners[t]; ok {
 		for _, listener := range a {
 			if err := listener.apply(e); err != nil {
 				return err
 			}
 		}
+		return nil
+	} else {
+		return fmt.Errorf("cqrs: no listener registered for event %v", e)
 	}
-	return nil
 }
 
 func processCommand(c Command, agg Aggregator) error {
@@ -236,7 +239,6 @@ func processCommand(c Command, agg Aggregator) error {
 		}
 		if err == nil {
 			for _, event := range newEvents {
-				event.SetSequenceNumber(atomic.AddUint64(&eventSequenceNumber, 1))
 				if err = publishEvent(event); err != nil {
 					break
 				}
