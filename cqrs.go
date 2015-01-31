@@ -187,6 +187,10 @@ func RegisterEventStore(es EventStorer) {
 	if es == nil {
 		panic("cqrs: can't register nil EventStorer.")
 	}
+
+	if eventStore != nil {
+		panic("cqrs: can't register more than one event store")
+	}
 	eventStore = es
 	eventStore.SetEventTypes(registeredEvents)
 }
