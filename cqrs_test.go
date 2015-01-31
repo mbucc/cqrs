@@ -39,10 +39,15 @@ func (c *ShoutCommand) SupportsRollback() bool {
 type HeardEvent struct {
 	id    AggregateID
 	Heard string
+	SequenceNumber uint64
 }
 
 func (e *HeardEvent) ID() AggregateID {
 	return e.id
+}
+
+func (e *HeardEvent) SetSequenceNumber(n uint64) {
+	e.SequenceNumber = n
 }
 
 type EchoAggregate struct {
@@ -52,7 +57,7 @@ type EchoAggregate struct {
 func (eh EchoAggregate) Handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
 	c1 := c.(*ShoutCommand)
-	a[0] = &HeardEvent{c1.ID(), c1.Comment}
+	a[0] = &HeardEvent{id: c1.ID(), Heard: c1.Comment}
 	return a, nil
 }
 
@@ -86,7 +91,7 @@ func (h SlowDownEchoAggregate) Handle(c Command) (a []Event, err error) {
 	if strings.HasPrefix(c1.Comment, "slow") {
 		time.Sleep(250 * time.Millisecond)
 	}
-	a[0] = &HeardEvent{c1.ID(), c1.Comment}
+	a[0] = &HeardEvent{id: c1.ID(), Heard: c1.Comment}
 	return a, nil
 }
 

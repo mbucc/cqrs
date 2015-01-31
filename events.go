@@ -34,6 +34,14 @@ func (e *ErrConcurrency) Error() string {
 // for example, FaceSlapped.
 type Event interface {
 	ID() AggregateID
+
+	// We count atomically and give each event
+	// a unique number.
+	// Numbers for events within a command are not
+	// guaranteed to be sequential; the only guarantee
+	// is that a later event will have a higher number
+	// than an earlier event.
+	SetSequenceNumber(uint64)
 }
 
 // An EventListener is typically a read model,
