@@ -37,7 +37,7 @@ type Event interface {
 }
 
 // An EventListener is typically a read model,
-// for example, a denormalized summary of your
+// for example, an in-memory denormalized summary of your
 // data that is very fast to query.
 type EventListener interface {
 	apply(e Event) error

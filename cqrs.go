@@ -1,17 +1,28 @@
 // Package cqrs provides a command-query responsibility separation library.
 //
-// This is currently a work in progress,
-// and is not yet used in production.
-// You can look at the tests to get an idea
-// of what should work properly.
+// It was inspired by (and is largely a translation of) the Edument
+// CQRS starter kit found at https://github.com/edumentab/cqrs-starter-kit
 //
-// Register your Commands, EventListeners, and EventStore
-// and start sending commands.
-// The library provides a simple FileSystemEventStorer to persist events.
+// A command is a request that is made to your system,
+// which your system either accepts or rejects.
+// An accepted command generates one or more events,
+// each of which is published to one or more listeners.
+// Only commands are allowed to change system state.
 //
-// Commands can have one and only one Aggregate.  One command can generate multiple
-// events.  All three (commands, events, aggregates) are tied together by the same
-// id: the AggregateID.
+// Queries are read-only and typically use event listeners
+// that are optimized for fast reads.
+//
+// The responsibility for updating data
+// is separated from reading the data.
+// Commands update and the event listeners
+// build read models that are optimized
+// for reading.
+//
+// In addition, the responsibility for ensuring
+// that business rules are met are separated by
+// defining a different Aggregate for each "consistency
+// boundary" (or the minimum set of data required to
+// guarantee that a business rule is kept).
 package cqrs
 
 
@@ -61,17 +72,6 @@ type AggregateID int
 // rollbacks, cqrs will try to process the
 // command a total of three times before
 // it fails.
-//
-// A concurrency error occurs if ,
-// after an Aggregator has loaded old events from the event store
-// and before it has persisted new events resulting from the command processing,
-// another command of the same type comes in 
-// and completes it's processing.
-//
-// The check for a consistency error is simple: when writing new events to the store,
-// we check that the number of events on file 
-// are the same as the number of events loaded 
-// when the command processing began.
 type Command interface {
 	ID() AggregateID
 	SupportsRollback() bool
@@ -173,9 +173,10 @@ func RegisterEventListeners(e Event, a ...EventListener) {
 }
 
 // RegisterEventStore registers the event store 
-// The library assumes that the event store
 // that reads and writes event history 
 // from a persistent store.
+//
+// The library assumes that the event store
 // needs to know the full set of event types
 // when it is created, so the event store
 // must be registered after all event listeners.
