@@ -134,7 +134,7 @@ func TestSendCommand(t *testing.T) {
 		RegisterEventListeners(new(HeardEvent),
 			new(ChannelWriterEventListener),
 			new(ChannelWriterEventListener))
-		RegisterAggregator(new(ShoutCommand), EchoAggregate{})
+		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
 		RegisterEventStore(new(NullEventStore))
 		Convey("A ShoutCommand should be heard", func() {
 			go func() {
@@ -167,7 +167,7 @@ func TestFileSystemEventStore(t *testing.T) {
 	store := &FileSystemEventStore{"/tmp"}
 	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 	RegisterEventStore(store)
-	RegisterAggregator(new(ShoutCommand), EchoAggregate{})
+	RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
 
 	Convey("Given an echo handler and two null listeners", t, func() {
 
@@ -195,7 +195,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 		store := &FileSystemEventStore{"/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
-		RegisterAggregator(new(ShoutCommand), EchoAggregate{})
+		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
 
 		Convey("A ShoutCommand should persist old and new events", func() {
 			err := SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
@@ -223,7 +223,7 @@ func TestConcurrencyError(t *testing.T) {
 		store := &FileSystemEventStore{"/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
-		RegisterAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
+		RegisterCommandAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
 		agg := SlowDownEchoAggregate{1}
 
 		Convey("Given one slow and then one fast echo", func() {
@@ -261,7 +261,7 @@ func TestRetryOnConcurrencyError(t *testing.T) {
 		store := &FileSystemEventStore{"/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
-		RegisterAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
+		RegisterCommandAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
 
 		agg := SlowDownEchoAggregate{1}
 

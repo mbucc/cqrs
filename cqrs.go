@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-var aggregators = make(map[reflect.Type]Aggregator)
+var commandAggregator = make(map[reflect.Type]Aggregator)
 var eventListeners = make(map[reflect.Type][]EventListener)
 var eventStore EventStorer
 var registeredEvents []Event
@@ -82,15 +82,15 @@ type CommandHandler interface {
 
 // For tests.
 func unregisterAll() {
-	aggregators = make(map[reflect.Type]Aggregator)
+	commandAggregator = make(map[reflect.Type]Aggregator)
 	eventListeners = make(map[reflect.Type][]EventListener)
 	eventStore = nil
 }
 
-// RegisterAggregator associates a Command with it's Aggregator.
-// If RegisterAggregator is called twice with the same Command
+// RegisterCommandAggregator associates a Command with it's Aggregator.
+// If RegisterCommandAggregator is called twice with the same Command
 // type, it panics.
-func RegisterAggregator(c Command, a Aggregator) {
+func RegisterCommandAggregator(c Command, a Aggregator) {
 	if a == nil {
 		panic("cqrs: can't register a nil Aggregator")
 	}
@@ -107,10 +107,10 @@ func RegisterAggregator(c Command, a Aggregator) {
 		panic(fmt.Sprintf("cqrs: %v is a %v, not a struct", atype, atype.Kind()))
 	}
 	t := reflect.TypeOf(c)
-	if _, dup := aggregators[t]; dup {
-		panic(fmt.Sprintf("cqrs: RegisterAggregator called twice for command type %v", t))
+	if _, dup := commandAggregator[t]; dup {
+		panic(fmt.Sprintf("cqrs: RegisterCommandAggregator called twice for command type %v", t))
 	}
-	aggregators[t] = a.New(AggregateID(0))
+	commandAggregator[t] = a.New(AggregateID(0))
 }
 
 // RegisterEventListeners associates one or more eventListeners
@@ -248,7 +248,7 @@ func processCommand(c Command, agg Aggregator) error {
 // by the command processing.
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
-	if agg, ok := aggregators[t]; ok {
+	if agg, ok := commandAggregator[t]; ok {
 		return processCommand(c, agg)
 	}
 	return errors.New(fmt.Sprint("No handler registered for command ", t))
