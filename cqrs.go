@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync/atomic"
 	"time"
 )
 
@@ -38,6 +39,7 @@ var commandAggregator = make(map[reflect.Type]Aggregator)
 var eventListeners = make(map[reflect.Type][]EventListener)
 var eventStore EventStorer
 var registeredEvents []Event
+var eventSequenceNumber uint64
 
 // An AggregateID is a unique identifier for an Aggregator instance.
 //
@@ -234,6 +236,7 @@ func processCommand(c Command, agg Aggregator) error {
 		}
 		if err == nil {
 			for _, event := range newEvents {
+				event.SetSequenceNumber(atomic.AddUint64(&eventSequenceNumber, 1))
 				if err = publishEvent(event); err != nil {
 					break
 				}
