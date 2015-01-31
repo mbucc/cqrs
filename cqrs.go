@@ -63,8 +63,8 @@ type Command interface {
 // that one (or more) of you business
 // rules are kept.
 type Aggregator interface {
-	ID() AggregateID
 	CommandHandler
+	ID() AggregateID
 	ApplyEvents([]Event)
 	New(AggregateID) Aggregator
 }
@@ -159,19 +159,6 @@ func RegisterEventStore(es EventStorer) {
 	eventStore.SetEventTypes(registeredEvents)
 }
 
-// SendCommand instantiates the aggregate associated with this command,
-// loads events we've stored for this aggregate,
-// processes the command,
-// and persists any events generated
-// by the command processing.
-func SendCommand(c Command) error {
-	t := reflect.TypeOf(c)
-	if processor, ok := aggregators[t]; ok {
-		return processor(c)
-	}
-	return errors.New(fmt.Sprint("No handler registered for command ", t))
-}
-
 // Since events represent a thing that actually happened,
 // a fact, having an event listener return an error
 // is probably not the right thing to do.
@@ -261,5 +248,18 @@ func makeProcessor(agg Aggregator) commandProcessor {
 		}
 		return err
 	}
+}
+
+// SendCommand instantiates the aggregate associated with this command,
+// loads events we've stored for this aggregate,
+// processes the command,
+// and persists any events generated
+// by the command processing.
+func SendCommand(c Command) error {
+	t := reflect.TypeOf(c)
+	if processor, ok := aggregators[t]; ok {
+		return processor(c)
+	}
+	return errors.New(fmt.Sprint("No handler registered for command ", t))
 }
 
