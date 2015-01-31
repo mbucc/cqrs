@@ -7,21 +7,22 @@
 // which your system either accepts or rejects.
 // An accepted command generates one or more events,
 // each of which is published to one or more listeners.
-// Only commands are allowed to change system state.
 //
-// Queries are read-only and typically use event listeners
-// that are optimized for fast reads.
+// Queries are read-only and are built by event listeners.
+// A read model is typically optimized
+// (denormalized, etc.) for fast reads.
 //
 // The responsibility for updating data
 // is separated from reading the data.
-// Commands update and the event listeners
-// build read models that are optimized
-// for reading.
+// Commands update state
+// and do not provide any read access to data.
+// Event listeners build read models,
+// which provide read-only access to data.
 //
-// In addition, the responsibility for ensuring
-// that business rules are met are separated by
+// Another way that responsibility is spread is
+// that business rules are satisfied by
 // defining a different Aggregate for each "consistency
-// boundary" (or the minimum set of data required to
+// boundary" (the minimum set of data required to
 // guarantee that a business rule is kept).
 package cqrs
 
