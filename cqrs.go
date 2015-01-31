@@ -93,10 +93,10 @@ func unregisterAll() {
 	eventStore = nil
 }
 
-// RegisterCommand associates a Command with it's Aggregator.
-// If RegisterCommand is called twice with the same Command
+// RegisterAggregator associates a Command with it's Aggregator.
+// If RegisterAggregator is called twice with the same Command
 // type, it panics.
-func RegisterCommand(c Command, a Aggregator) {
+func RegisterAggregator(c Command, a Aggregator) {
 	if a == nil {
 		panic("cqrs: can't register a nil Aggregator")
 	}
@@ -118,7 +118,7 @@ func RegisterCommand(c Command, a Aggregator) {
 	}
 	t := reflect.TypeOf(c)
 	if _, dup := aggregators[t]; dup {
-		panic(fmt.Sprintf("cqrs: RegisterCommand called twice for command type %v", t))
+		panic(fmt.Sprintf("cqrs: RegisterAggregator called twice for command type %v", t))
 	}
 	aggregators[t] = makeProcessor(a)
 }
