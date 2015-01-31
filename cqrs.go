@@ -30,6 +30,24 @@ var registeredEvents []Event
 // An AggregateID is a unique identifier for an Aggregator instance.
 //
 // All Events and Commands are associated with an aggregate instance.
+//
+// This will probably change to use a so-called
+// globally unique identifier.
+// I started with using an int
+// because I didn't understand guids.
+// If your random number generator is good,
+// a guid should be fine; you would need to
+// generate 326,000,000 billion guids before
+// the chance of a duplicate hit's 1%.
+// There is still the issue of poor database
+// index performance,
+// but that can be measured
+// and I expect it is not a real issue
+// for the vast majority of sites
+// (and certainly mine!).
+//
+// Here is a really good writeup on guids:
+// http://blog.stephencleary.com/2010/11/few-words-on-guids.html
 type AggregateID int
 
 // A Command is an action
@@ -44,10 +62,16 @@ type AggregateID int
 // command a total of three times before
 // it fails.
 //
-// A concurrency error occurs if two of the
-// same command occur at the same time; the
-// second command updates the event store
-// before the first one does.
+// A concurrency error occurs if ,
+// after an Aggregator has loaded old events from the event store
+// and before it has persisted new events resulting from the command processing,
+// another command of the same type comes in 
+// and completes it's processing.
+//
+// The check for a consistency error is simple: when writing new events to the store,
+// we check that the number of events on file 
+// are the same as the number of events loaded 
+// when the command processing began.
 type Command interface {
 	ID() AggregateID
 	SupportsRollback() bool
@@ -62,6 +86,14 @@ type Command interface {
 // that contains enough state to guarantee
 // that one (or more) of you business
 // rules are kept.
+//
+// This was the hardest concept for me to grasp
+// when writing this library; for more information
+// on Aggregates, see https://github.com/mbucc/cqrs/wiki/Aggregate
+//
+// Note that this implementation is a bit simpler
+// than others in that the CommandHandler interface 
+// is embedded in the Aggregator interface.
 type Aggregator interface {
 	CommandHandler
 	ID() AggregateID
@@ -70,12 +102,13 @@ type Aggregator interface {
 }
 
 // CommandHandler is the interface
-// that wraps the Handle(c Command) command.
-//
-// The implementor will typically:
+// that wraps the Handle(c Command) command, and will typically:
 //   - validate the command data
 //   - generate events for a valid command
 //   - try to persist events
+//
+// Note that in this implementation,
+// the Aggregator interface embeds the CommandHandler.
 type CommandHandler interface {
 	Handle(c Command) (e []Event, err error)
 }
@@ -139,12 +172,13 @@ func RegisterEventListeners(e Event, a ...EventListener) {
 	registeredEvents = append(registeredEvents, e)
 }
 
-// RegisterEventStore registers the event store to use
+// RegisterEventStore registers the event store 
 // The library assumes that the event store
+// that reads and writes event history 
+// from a persistent store.
 // needs to know the full set of event types
 // when it is created, so the event store
 // must be registered after all event listeners.
-// for persisting and loading events.
 func RegisterEventStore(es EventStorer) {
 	if es == nil {
 		panic("cqrs: can't register nil EventStorer.")
@@ -250,6 +284,11 @@ func processCommand(c Command, agg Aggregator) error {
 // processes the command,
 // publishes and persists any events generated
 // by the command processing.
+//
+// If the command supports transactions,
+// and a concurrency error is encountered,
+// SendCommand will try to process the command
+// a total of three times.
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if agg, ok := commandAggregator[t]; ok {

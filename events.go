@@ -7,6 +7,16 @@ import (
 	"strings"
 )
 
+// A concurrency error occurs if,
+// after an Aggregator has loaded old events from the event store
+// and before it has persisted new events resulting from the command processing,
+// another command of the same type comes in 
+// and completes it's processing.
+//
+// The check for a consistency error is simple: when writing new events to the store,
+// we check that the number of events on file 
+// are the same as the number of events loaded 
+// when the command processing began.
 type ErrConcurrency struct {
 	eventCountNow    int
 	eventCountStart int
@@ -64,12 +74,12 @@ func (es *NullEventStore) SetEventTypes(a []Event) {
 // aggregate<aggregate_id>.gob
 // and the events are stored as gob.
 //
-// (mbucc) File names will collide if two different aggregate types have the same ID.
 type FileSystemEventStore struct {
 	rootdir    string
 }
 
-// Register event types so we can reconsitute into an interface.
+// SetEventTypes registers event types
+// so we can reconsitute into an interface.
 // Will panic if the same eventype appears more than once.
 func (fes *FileSystemEventStore) SetEventTypes(types []Event) {
 	for _, event := range types {
@@ -77,6 +87,7 @@ func (fes *FileSystemEventStore) SetEventTypes(types []Event) {
 	}
 }
 
+// Generate the file name used for the gob file for this aggregate.
 func (es *FileSystemEventStore) FileNameFor(agg Aggregator) string {
 	t :=  fmt.Sprintf("%T", agg)
 	if strings.HasPrefix(t, "*") {
@@ -85,7 +96,8 @@ func (es *FileSystemEventStore) FileNameFor(agg Aggregator) string {
 	return fmt.Sprintf("%s/%v%v.gob", es.rootdir, t, agg.ID())
 }
 
-// Load events from disk for the given aggregate.
+// LoadEventsFor opens the gob file for the aggregator and returns any events found.
+// If the file does not exist, an empty list is returned.
 func (es *FileSystemEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 	var events []Event
 	fn := es.FileNameFor(agg)
