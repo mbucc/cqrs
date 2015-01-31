@@ -104,6 +104,7 @@ func RegisterAggregator(c Command, a Aggregator) {
 		panic("cqrs: can't register an Aggregator to a nil Command")
 	}
 	atype := reflect.TypeOf(a)
+
 	// The aggregator must be a struct
 	// so that we can instantiate it
 	// in a way that we get to access
@@ -112,7 +113,10 @@ func RegisterAggregator(c Command, a Aggregator) {
 	// If it's a pointer, we can instantiate
 	// but as soon as you try to use an
 	// method on that pointer,
-	// Go panics with a nil pointer exception.
+	// Go panics with a nil pointer exception
+	// because it has created a pointer,
+	// but there is no struct allocated
+	// to point at.
 	if atype.Kind() != reflect.Struct {
 		panic(fmt.Sprintf("cqrs: %v is a %v, not a struct", atype, atype.Kind()))
 	}
