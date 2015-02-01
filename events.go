@@ -10,18 +10,18 @@ import (
 // A concurrency error occurs if,
 // after an Aggregator has loaded old events from the event store
 // and before it has persisted new events resulting from the command processing,
-// another command of the same type comes in 
+// another command of the same type comes in
 // and completes it's processing.
 //
 // The check for a consistency error is simple: when writing new events to the store,
-// we check that the number of events on file 
-// are the same as the number of events loaded 
+// we check that the number of events on file
+// are the same as the number of events loaded
 // when the command processing began.
 type ErrConcurrency struct {
-	eventCountNow    int
+	eventCountNow   int
 	eventCountStart int
-	aggregate Aggregator
-	newEvents        []Event
+	aggregate       Aggregator
+	newEvents       []Event
 }
 
 func (e *ErrConcurrency) Error() string {
@@ -51,6 +51,7 @@ type Event interface {
 // BUG(mbucc) Currently, there is no facility to rebuild an event listener on cqrs engine restart.
 type EventListener interface {
 	apply(e Event) error
+	reapply(e Event) error
 }
 
 // An EventStorer is an interface that defines the methods
@@ -59,6 +60,7 @@ type EventStorer interface {
 	SetEventTypes([]Event)
 	LoadEventsFor(Aggregator) ([]Event, error)
 	SaveEventsFor(Aggregator, []Event, []Event) error
+	GetAllEvents() ([]Event, error)
 }
 
 // A NullEventStore is an event storer that neither stores nor restores.
@@ -75,6 +77,11 @@ func (es *NullEventStore) SaveEventsFor(agg Aggregator, loaded []Event, result [
 	return nil
 }
 
+// GetAllEvents in the null EventStorer doesn't load anything.
+func (es *NullEventStore) GetAllEvents() ([]Event, error) {
+	return []Event{}, nil
+}
+
 // SetEventTypes does nothing in the null event store.
 func (es *NullEventStore) SetEventTypes(a []Event) {
 }
@@ -85,7 +92,7 @@ func (es *NullEventStore) SetEventTypes(a []Event) {
 // and the events are stored as gob.
 //
 type FileSystemEventStore struct {
-	rootdir    string
+	rootdir string
 }
 
 // SetEventTypes registers event types
@@ -99,7 +106,7 @@ func (fes *FileSystemEventStore) SetEventTypes(types []Event) {
 
 // Generate the file name used for the gob file for this aggregate.
 func (es *FileSystemEventStore) FileNameFor(agg Aggregator) string {
-	t :=  fmt.Sprintf("%T", agg)
+	t := fmt.Sprintf("%T", agg)
 	if strings.HasPrefix(t, "*") {
 		t = t[1:]
 	}
@@ -127,6 +134,10 @@ func (es *FileSystemEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 		return nil, fmt.Errorf("LoadEventsFor(%v): can't decode '%s', %s", agg, fn, err)
 	}
 	return events, nil
+}
+
+func (es *FileSystemEventStore) GetAllEvents() ([]Event, error) {
+	return []Event{}, nil
 }
 
 // SaveEventsFor persists the events to disk for the given Aggregate.

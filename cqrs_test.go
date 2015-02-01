@@ -37,8 +37,8 @@ func (c *ShoutCommand) SupportsRollback() bool {
 }
 
 type HeardEvent struct {
-	id    AggregateID
-	Heard string
+	id             AggregateID
+	Heard          string
 	SequenceNumber uint64
 }
 
@@ -51,7 +51,7 @@ func (e *HeardEvent) SetSequenceNumber(n uint64) {
 }
 
 type EchoAggregate struct {
-	id  AggregateID
+	id AggregateID
 }
 
 func (eh EchoAggregate) Handle(c Command) (a []Event, err error) {
@@ -73,7 +73,7 @@ func (eh EchoAggregate) ApplyEvents([]Event) {
 }
 
 type SlowDownEchoAggregate struct {
-	id	AggregateID
+	id AggregateID
 }
 
 func (h SlowDownEchoAggregate) ID() AggregateID {
@@ -82,8 +82,6 @@ func (h SlowDownEchoAggregate) ID() AggregateID {
 func (eh SlowDownEchoAggregate) New(id AggregateID) Aggregator {
 	return &SlowDownEchoAggregate{id}
 }
-
-
 
 func (h SlowDownEchoAggregate) Handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
@@ -105,9 +103,17 @@ func (h *ChannelWriterEventListener) apply(e Event) error {
 	return nil
 }
 
+func (h *ChannelWriterEventListener) reapply(e Event) error {
+	return nil
+}
+
 type NullEventListener struct{}
 
 func (h *NullEventListener) apply(e Event) error {
+	return nil
+}
+
+func (h *NullEventListener) reapply(e Event) error {
 	return nil
 }
 
@@ -196,7 +202,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 	Convey("Given an echo handler and two null listeners", t, func() {
 
 		aggid := AggregateID(1)
-	agg := EchoAggregate{aggid}
+		agg := EchoAggregate{aggid}
 		store := &FileSystemEventStore{"/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)

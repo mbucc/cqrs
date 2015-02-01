@@ -26,7 +26,6 @@
 // guarantee that a business rule is kept).
 package cqrs
 
-
 import (
 	"errors"
 	"fmt"
@@ -95,7 +94,7 @@ type Command interface {
 // on Aggregates, see https://github.com/mbucc/cqrs/wiki/Aggregate
 //
 // Note that this implementation is a bit simpler
-// than others in that the CommandHandler interface 
+// than others in that the CommandHandler interface
 // is embedded in the Aggregator interface.
 type Aggregator interface {
 	CommandHandler
@@ -155,6 +154,8 @@ func RegisterCommandAggregator(c Command, a Aggregator) {
 // If RegisterEventListeners is called
 // after the event store is registered
 // will cause a panic.
+//
+// BUG(mbucc) We should only panic if a new event TYPE is added.
 func RegisterEventListeners(e Event, a ...EventListener) {
 	if e == nil {
 		panic("cqrs: can't register a nil Event to eventListeners")
@@ -175,14 +176,50 @@ func RegisterEventListeners(e Event, a ...EventListener) {
 	registeredEvents = append(registeredEvents, e)
 }
 
-// RegisterEventStore registers the event store 
-// that reads and writes event history 
-// from a persistent store.
+func republishEvents() {
+	var events []Event
+	var err error
+	events, err = eventStore.GetAllEvents()
+	if err != nil {
+		panic(fmt.Sprintf("cqrs: GetAllEvents failed, %v", err))
+	}
+	for _, e := range events {
+		t := reflect.TypeOf(e)
+		if a, ok := eventListeners[t]; ok {
+			for _, listener := range a {
+				if err := listener.reapply(e); err != nil {
+					msg := fmt.Sprintf(`cqrs: error reapplying
+						event %v to listener %v`, e, a, err)
+					panic(msg)
+				}
+			}
+		} else {
+			msg := fmt.Sprintf("cqrs: no listener registered for event %v", e)
+			panic(msg)
+		}
+	}
+}
+
+// RegisterEventStore defines how events
+// are written to and read from
+// a persistent store.
+// In addition, registering an event store
+// triggers a task that re-initializes all read models
+// by reading all events from history and republishing
+// them to the event listeners.
+// Note that it is a fatal error if cqrs
+// encounters an error reading the event history
+// or reprocessing one of the events in the history.
+// Either of the conditions will cause a panic.
 //
-// The library assumes that the event store
-// needs to know the full set of event types
-// when it is created, so the event store
-// must be registered after all event listeners.
+// Once you have registered an event store,
+// you cannot register more event listeners.
+// The store needs the full set of event types
+// so it can de-serialize structs
+// into an array of Event interfaces.
+//
+// You can only register one event store;
+// calling RegisterEventStore a second time will cause a panic.
 func RegisterEventStore(es EventStorer) {
 	if es == nil {
 		panic("cqrs: can't register nil EventStorer.")
@@ -193,6 +230,9 @@ func RegisterEventStore(es EventStorer) {
 	}
 	eventStore = es
 	eventStore.SetEventTypes(registeredEvents)
+
+	// Re-load read models.
+	republishEvents()
 }
 
 // Since events represent a thing that actually happened,
@@ -257,7 +297,7 @@ func processCommand(c Command, agg Aggregator) error {
 			// then swallow the error, sleep a little,
 			// then try again.
 			if err != nil {
-				if _, ok := err.(*ErrConcurrency) ; ok {
+				if _, ok := err.(*ErrConcurrency); ok {
 					if triesLeft > 1 {
 						err = nil
 						c.Rollback()
@@ -307,4 +347,3 @@ func SendCommand(c Command) error {
 	}
 	return errors.New(fmt.Sprint("No handler registered for command ", t))
 }
-
