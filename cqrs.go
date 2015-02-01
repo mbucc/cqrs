@@ -156,7 +156,7 @@ func RegisterCommandAggregator(c Command, a Aggregator) {
 // after the event store is registered
 // will cause a panic.
 //
-// BUG(mbucc) We should only panic if a new event TYPE is added.
+// BUG(mbucc) RegisterEventListeners should only panic if a new event TYPE is added.
 func RegisterEventListeners(e Event, a ...EventListener) {
 	if e == nil {
 		panic("cqrs: can't register a nil Event to eventListeners")
