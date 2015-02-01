@@ -59,7 +59,6 @@ func (s BySequenceNumber) Less(i, j int) bool { return s[i].SequenceNumber() < s
 // for example, an in-memory denormalized summary of your
 // data that is very fast to query.
 //
-// BUG(mbucc) Currently, there is no facility to rebuild an event listener on cqrs engine restart.
 type EventListener interface {
 	apply(e Event) error
 	reapply(e Event) error
