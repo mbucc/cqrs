@@ -72,6 +72,25 @@ func (eh EchoAggregate) New(id AggregateID) Aggregator {
 func (eh EchoAggregate) ApplyEvents([]Event) {
 }
 
+type NullAggregate struct {
+	id AggregateID
+}
+
+func (eh NullAggregate) Handle(c Command) (a []Event, err error) {
+	return []Event{}, nil
+}
+
+func (eh NullAggregate) ID() AggregateID {
+	return eh.id
+}
+
+func (eh NullAggregate) New(id AggregateID) Aggregator {
+	return &NullAggregate{id}
+}
+
+func (eh NullAggregate) ApplyEvents([]Event) {
+}
+
 type SlowDownEchoAggregate struct {
 	id AggregateID
 }
@@ -298,6 +317,41 @@ func TestRetryOnConcurrencyError(t *testing.T) {
 		Reset(func() {
 			os.Remove(store.FileNameFor(agg))
 			os.Remove(store.FileNameFor(agg) + ".tmp")
+		})
+	})
+}
+
+func TestReloadHistory(t *testing.T) {
+
+	unregisterAll()
+
+	Convey("Given an event history", t, func() {
+
+		store := &FileSystemEventStore{"/tmp"}
+		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+		RegisterEventStore(store)
+		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
+
+		So(SendCommand(&ShoutCommand{1, "hello1", true}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{2, "hello2", true}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{2, "hello2a", true}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{3, "hello3", true}), ShouldEqual, nil)
+
+		Convey("We should be able to reload history", func() {
+			unregisterAll()
+			RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+			RegisterEventStore(store)
+			events, err := store.GetAllEvents()
+			So(err, ShouldEqual, nil)
+			So(len(events), ShouldEqual, 4)
+		})
+		Reset(func() {
+			os.Remove(store.FileNameFor(NullAggregate{1}))
+			os.Remove(store.FileNameFor(NullAggregate{1}) + ".tmp")
+			os.Remove(store.FileNameFor(NullAggregate{2}))
+			os.Remove(store.FileNameFor(NullAggregate{2}) + ".tmp")
+			os.Remove(store.FileNameFor(NullAggregate{3}))
+			os.Remove(store.FileNameFor(NullAggregate{3}) + ".tmp")
 		})
 	})
 }
