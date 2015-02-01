@@ -4,8 +4,12 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 )
+
+const aggFilenamePrefix string = "aggregate"
 
 // A concurrency error occurs if,
 // after an Aggregator has loaded old events from the event store
@@ -42,7 +46,14 @@ type Event interface {
 	// is that a later event will have a higher number
 	// than an earlier event.
 	SetSequenceNumber(uint64)
+	SequenceNumber() uint64
 }
+
+type BySequenceNumber []Event
+
+func (s BySequenceNumber) Len() int           { return len(s) }
+func (s BySequenceNumber) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s BySequenceNumber) Less(i, j int) bool { return s[i].SequenceNumber() < s[j].SequenceNumber() }
 
 // An EventListener is typically a read model,
 // for example, an in-memory denormalized summary of your
@@ -92,7 +103,8 @@ func (es *NullEventStore) SetEventTypes(a []Event) {
 // and the events are stored as gob.
 //
 type FileSystemEventStore struct {
-	rootdir string
+	rootdir     string
+	historySize uint64
 }
 
 // SetEventTypes registers event types
@@ -110,7 +122,21 @@ func (es *FileSystemEventStore) FileNameFor(agg Aggregator) string {
 	if strings.HasPrefix(t, "*") {
 		t = t[1:]
 	}
-	return fmt.Sprintf("%s/%v%v.gob", es.rootdir, t, agg.ID())
+	return fmt.Sprintf("%s/%s-%v_%v.gob", es.rootdir, aggFilenamePrefix, t, agg.ID())
+}
+
+func filenameToEvents(fn string) ([]Event, error) {
+	var events []Event
+	fp, err := os.Open(fn)
+	if err != nil {
+		return nil, fmt.Errorf("cqrs: can't read events from %s, %v", fn, err)
+	}
+	defer fp.Close()
+	decoder := gob.NewDecoder(fp)
+	if err := decoder.Decode(&events); err != nil {
+		return nil, fmt.Errorf("cqrs: can't decode events in %s, %v", fn, err)
+	}
+	return events, nil
 }
 
 // LoadEventsFor opens the gob file for the aggregator and returns any events found.
@@ -124,20 +150,28 @@ func (es *FileSystemEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 		}
 		return nil, fmt.Errorf("LoadEventsFor(%v): can't stat '%s', %s", agg, fn, err)
 	}
-	fp, err := os.Open(fn)
-	if err != nil {
-		return nil, fmt.Errorf("LoadEventsFor(%v): can't open '%s', %s", agg, fn, err)
-	}
-	defer fp.Close()
-	decoder := gob.NewDecoder(fp)
-	if err := decoder.Decode(&events); err != nil {
-		return nil, fmt.Errorf("LoadEventsFor(%v): can't decode '%s', %s", agg, fn, err)
-	}
-	return events, nil
+	return filenameToEvents(fn)
 }
 
 func (es *FileSystemEventStore) GetAllEvents() ([]Event, error) {
-	return []Event{}, nil
+	var events []Event = make([]Event, es.historySize)
+	gobfiles, err := filepath.Glob(fmt.Sprintf("%s/%s-*.gob", es.rootdir, aggFilenamePrefix))
+	if err != nil {
+		panic(fmt.Sprintf("cqrs: logic error (bad pattern) in GetAllEvents, %v", err))
+	}
+
+	for _, fn := range gobfiles {
+		newevents, err := filenameToEvents(fn)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, newevents...)
+	}
+
+	sort.Sort(BySequenceNumber(events))
+
+	return events, nil
+
 }
 
 // SaveEventsFor persists the events to disk for the given Aggregate.

@@ -26,6 +26,7 @@
 // guarantee that a business rule is kept).
 package cqrs
 
+
 import (
 	"errors"
 	"fmt"
@@ -291,12 +292,14 @@ func processCommand(c Command, agg Aggregator) error {
 		if err == nil {
 			err = eventStore.SaveEventsFor(a, oldEvents, newEvents)
 
-			// If
-			//	- we got a concurrency error
-			//	- we have retries left
-			// then swallow the error, sleep a little,
-			// then try again.
-			if err != nil {
+			if err == nil {
+				triesLeft = 0
+				// If
+				//	- we got a concurrency error
+				//	- we have retries left
+				// then swallow the error, sleep a little,
+				// then try again.
+			} else {
 				if _, ok := err.(*ErrConcurrency); ok {
 					if triesLeft > 1 {
 						err = nil

@@ -39,7 +39,7 @@ func (c *ShoutCommand) SupportsRollback() bool {
 type HeardEvent struct {
 	id             AggregateID
 	Heard          string
-	SequenceNumber uint64
+	sequenceNumber uint64
 }
 
 func (e *HeardEvent) ID() AggregateID {
@@ -47,7 +47,11 @@ func (e *HeardEvent) ID() AggregateID {
 }
 
 func (e *HeardEvent) SetSequenceNumber(n uint64) {
-	e.SequenceNumber = n
+	e.sequenceNumber = n
+}
+
+func (e *HeardEvent) SequenceNumber() uint64 {
+	return e.sequenceNumber
 }
 
 type EchoAggregate struct {
@@ -77,7 +81,10 @@ type NullAggregate struct {
 }
 
 func (eh NullAggregate) Handle(c Command) (a []Event, err error) {
-	return []Event{}, nil
+	a = make([]Event, 1)
+	c1 := c.(*ShoutCommand)
+	a[0] = &HeardEvent{id: c1.ID(), Heard: c1.Comment}
+	return a, nil
 }
 
 func (eh NullAggregate) ID() AggregateID {
@@ -194,7 +201,7 @@ func TestFileSystemEventStore(t *testing.T) {
 
 	aggid := AggregateID(1)
 	agg := EchoAggregate{aggid}
-	store := &FileSystemEventStore{"/tmp"}
+	store := &FileSystemEventStore{rootdir: "/tmp"}
 	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 	RegisterEventStore(store)
 	RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
@@ -222,7 +229,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 
 		aggid := AggregateID(1)
 		agg := EchoAggregate{aggid}
-		store := &FileSystemEventStore{"/tmp"}
+		store := &FileSystemEventStore{rootdir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
@@ -250,7 +257,7 @@ func TestConcurrencyError(t *testing.T) {
 
 	Convey("Given a fast/slow echo handler, a null listener, and a file system store", t, func() {
 
-		store := &FileSystemEventStore{"/tmp"}
+		store := &FileSystemEventStore{rootdir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
@@ -288,7 +295,7 @@ func TestRetryOnConcurrencyError(t *testing.T) {
 
 	Convey("Given a fast/slow echo handler, a null listener, and a file system store", t, func() {
 
-		store := &FileSystemEventStore{"/tmp"}
+		store := &FileSystemEventStore{rootdir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
@@ -327,15 +334,24 @@ func TestReloadHistory(t *testing.T) {
 
 	Convey("Given an event history", t, func() {
 
-		store := &FileSystemEventStore{"/tmp"}
+		store := &FileSystemEventStore{rootdir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
 
 		So(SendCommand(&ShoutCommand{1, "hello1", true}), ShouldEqual, nil)
+
+		events, err := store.GetAllEvents()
+		So(err, ShouldEqual, nil)
+		So(len(events), ShouldEqual, 1)
+
 		So(SendCommand(&ShoutCommand{2, "hello2", true}), ShouldEqual, nil)
 		So(SendCommand(&ShoutCommand{2, "hello2a", true}), ShouldEqual, nil)
 		So(SendCommand(&ShoutCommand{3, "hello3", true}), ShouldEqual, nil)
+
+		events, err = store.GetAllEvents()
+		So(err, ShouldEqual, nil)
+		So(len(events), ShouldEqual, 4)
 
 		Convey("We should be able to reload history", func() {
 			unregisterAll()
@@ -344,6 +360,12 @@ func TestReloadHistory(t *testing.T) {
 			events, err := store.GetAllEvents()
 			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 4)
+			Convey("We should be able to reload history", func() {
+				lastId := -1
+				for _, e := range events {
+					So(lastId, ShouldBeLessThan, e.SequenceNumber())
+				}
+			})
 		})
 		Reset(func() {
 			os.Remove(store.FileNameFor(NullAggregate{1}))
