@@ -1,3 +1,5 @@
+// Test comment, is this in godoc?
+
 // Package cqrs provides a command-query responsibility separation library.
 //
 // It was inspired by (and is largely a translation of) the Edument
