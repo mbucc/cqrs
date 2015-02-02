@@ -34,6 +34,8 @@ import (
 	"time"
 )
 
+const commandRetrySleep = 250 * time.Millisecond
+
 var commandAggregator = make(map[reflect.Type]Aggregator)
 var eventListeners = make(map[reflect.Type][]EventListener)
 var eventStore EventStorer
@@ -306,7 +308,7 @@ func processCommand(c Command, agg Aggregator) error {
 					if triesLeft > 1 {
 						err = nil
 						c.Rollback()
-						time.Sleep(250 * time.Millisecond)
+						time.Sleep(commandRetrySleep)
 					}
 				}
 			}
