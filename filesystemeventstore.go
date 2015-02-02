@@ -1,6 +1,6 @@
 /*
     Copyright (c) 2013, Edument AB
-    Copyright (c) 2014, Mark Bucciarelli <mkbucc@gmail.com>
+    Copyright (c) 2015, Mark Bucciarelli <mkbucc@gmail.com>
 
     Permission to use, copy, modify, and/or distribute this software
     for any purpose with or without fee is hereby granted, provided
