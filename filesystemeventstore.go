@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const aggFilenamePrefix string = "aggregate"
+
 // Store events in file system.
 // Events are stored in a file named
 // aggregate<aggregate_id>.gob

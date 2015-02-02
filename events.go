@@ -4,8 +4,6 @@ import (
 	"fmt"
 )
 
-const aggFilenamePrefix string = "aggregate"
-
 // A concurrency error occurs if,
 // after an Aggregator has loaded old events from the event store
 // and before it has persisted new events resulting from the command processing,
