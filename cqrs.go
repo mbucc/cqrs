@@ -343,6 +343,8 @@ func processCommand(c Command, agg Aggregator) error {
 // and a concurrency error is encountered,
 // SendCommand will try to process the command
 // a total of three times.
+//
+// BUG(mbucc) The event sequence number is reset to zero on engine restart.
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if agg, ok := commandAggregator[t]; ok {
