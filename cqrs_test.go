@@ -1,3 +1,7 @@
+/*
+
+*/
+
 package cqrs
 
 import (
