@@ -37,21 +37,13 @@ func (c *ShoutCommand) SupportsRollback() bool {
 }
 
 type HeardEvent struct {
-	id             AggregateID
-	Heard          string
-	sequenceNumber uint64
+	BaseEvent
+	id    AggregateID
+	Heard string
 }
 
 func (e *HeardEvent) ID() AggregateID {
 	return e.id
-}
-
-func (e *HeardEvent) SetSequenceNumber(n uint64) {
-	e.sequenceNumber = n
-}
-
-func (e *HeardEvent) SequenceNumber() uint64 {
-	return e.sequenceNumber
 }
 
 type EchoAggregate struct {
@@ -361,9 +353,10 @@ func TestReloadHistory(t *testing.T) {
 			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 4)
 			Convey("We should be able to reload history", func() {
-				lastId := -1
+				var lastId uint64 = 0
 				for _, e := range events {
-					So(lastId, ShouldBeLessThan, e.SequenceNumber())
+					So(lastId, ShouldBeLessThan, e.GetSequenceNumber())
+					lastId = e.GetSequenceNumber()
 				}
 			})
 		})
@@ -374,6 +367,47 @@ func TestReloadHistory(t *testing.T) {
 			os.Remove(store.FileNameFor(NullAggregate{2}) + ".tmp")
 			os.Remove(store.FileNameFor(NullAggregate{3}))
 			os.Remove(store.FileNameFor(NullAggregate{3}) + ".tmp")
+		})
+	})
+}
+func TestSequenceNumberCorrectAfterReload(t *testing.T) {
+
+	unregisterAll()
+
+	Convey("Given an event history", t, func() {
+
+		store := &FileSystemEventStore{rootdir: "/tmp"}
+		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+		RegisterEventStore(store)
+		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
+
+		So(SendCommand(&ShoutCommand{1, "hello1", true}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{2, "hello2", true}), ShouldEqual, nil)
+
+		events, err := store.GetAllEvents()
+		So(err, ShouldEqual, nil)
+		So(len(events), ShouldEqual, 2)
+
+		Convey("If we reload history, event sequence number should keep counting where it left off", func() {
+			unregisterAll()
+			RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+			RegisterEventStore(store)
+			RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
+			So(SendCommand(&ShoutCommand{1, "hello1", true}), ShouldEqual, nil)
+			events, err := store.GetAllEvents()
+			So(err, ShouldEqual, nil)
+			So(len(events), ShouldEqual, 3)
+			var lastId uint64 = 0
+			for _, e := range events {
+				So(lastId, ShouldBeLessThan, e.GetSequenceNumber())
+				lastId = e.GetSequenceNumber()
+			}
+		})
+		Reset(func() {
+			os.Remove(store.FileNameFor(NullAggregate{1}))
+			os.Remove(store.FileNameFor(NullAggregate{1}) + ".tmp")
+			os.Remove(store.FileNameFor(NullAggregate{2}))
+			os.Remove(store.FileNameFor(NullAggregate{2}) + ".tmp")
 		})
 	})
 }

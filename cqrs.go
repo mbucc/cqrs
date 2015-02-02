@@ -26,7 +26,6 @@
 // guarantee that a business rule is kept).
 package cqrs
 
-
 import (
 	"errors"
 	"fmt"
@@ -39,7 +38,9 @@ var commandAggregator = make(map[reflect.Type]Aggregator)
 var eventListeners = make(map[reflect.Type][]EventListener)
 var eventStore EventStorer
 var registeredEvents []Event
-var eventSequenceNumber uint64
+
+// First event gets sequence number 1.
+var eventSequenceNumber uint64 = 0
 
 // An AggregateID is a unique identifier for an Aggregator instance.
 //
@@ -121,6 +122,7 @@ func unregisterAll() {
 	commandAggregator = make(map[reflect.Type]Aggregator)
 	eventListeners = make(map[reflect.Type][]EventListener)
 	eventStore = nil
+	eventSequenceNumber = 0
 }
 
 // RegisterCommandAggregator associates a Command with it's Aggregator.
@@ -189,8 +191,7 @@ func republishEvents() {
 		if a, ok := eventListeners[t]; ok {
 			for _, listener := range a {
 				if err := listener.reapply(e); err != nil {
-					msg := fmt.Sprintf(`cqrs: error reapplying
-						event %v to listener %v`, e, a, err)
+					msg := fmt.Sprintf("cqrs: error reapplying event %v to listener %v", e, a, err)
 					panic(msg)
 				}
 			}
@@ -198,6 +199,7 @@ func republishEvents() {
 			msg := fmt.Sprintf("cqrs: no listener registered for event %v", e)
 			panic(msg)
 		}
+		eventSequenceNumber = e.GetSequenceNumber()
 	}
 }
 
@@ -343,12 +345,10 @@ func processCommand(c Command, agg Aggregator) error {
 // and a concurrency error is encountered,
 // SendCommand will try to process the command
 // a total of three times.
-//
-// BUG(mbucc) The event sequence number is reset to zero on engine restart.
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if agg, ok := commandAggregator[t]; ok {
 		return processCommand(c, agg)
 	}
-	return errors.New(fmt.Sprint("No handler registered for command ", t))
+	return errors.New(fmt.Sprint("No aggregate registered for command ", t))
 }

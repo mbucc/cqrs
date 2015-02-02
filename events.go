@@ -46,14 +46,38 @@ type Event interface {
 	// is that a later event will have a higher number
 	// than an earlier event.
 	SetSequenceNumber(uint64)
-	SequenceNumber() uint64
+	GetSequenceNumber() uint64
+}
+
+// BaseEvent exports the SequenceNumber field
+// which must be export for the GetAllEvents() method
+// of an EventStorer to work correctly.
+//
+// If you don't embed BaseEvent in your event,
+// make sure the data you need
+// to respond to a GetSequenceNumber() call
+// is stored as an exported struct field
+// so it will can be encoded and decoded
+// by the EventStorer.
+type BaseEvent struct {
+	SequenceNumber uint64
+}
+
+func (e *BaseEvent) GetSequenceNumber() uint64 {
+	return e.SequenceNumber
+}
+
+func (e *BaseEvent) SetSequenceNumber(n uint64) {
+	e.SequenceNumber = n
 }
 
 type BySequenceNumber []Event
 
-func (s BySequenceNumber) Len() int           { return len(s) }
-func (s BySequenceNumber) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s BySequenceNumber) Less(i, j int) bool { return s[i].SequenceNumber() < s[j].SequenceNumber() }
+func (s BySequenceNumber) Len() int      { return len(s) }
+func (s BySequenceNumber) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s BySequenceNumber) Less(i, j int) bool {
+	return s[i].GetSequenceNumber() < s[j].GetSequenceNumber()
+}
 
 // An EventListener is typically a read model,
 // for example, an in-memory denormalized summary of your
