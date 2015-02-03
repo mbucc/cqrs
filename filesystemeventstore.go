@@ -36,8 +36,9 @@ const aggFilenamePrefix string = "aggregate"
 // and the events are stored as gob.
 //
 type FileSystemEventStore struct {
-	rootdir     string
-	historySize uint64
+// BUG(mbucc) Modifying the RootDir of a FileSystemEventStore will break things.
+	RootDir     string
+	EventsInStore uint64
 }
 
 // SetEventTypes registers event types
@@ -55,7 +56,7 @@ func (es *FileSystemEventStore) FileNameFor(agg Aggregator) string {
 	if strings.HasPrefix(t, "*") {
 		t = t[1:]
 	}
-	return fmt.Sprintf("%s/%s-%v_%v.gob", es.rootdir, aggFilenamePrefix, t, agg.ID())
+	return fmt.Sprintf("%s/%s-%v_%v.gob", es.RootDir, aggFilenamePrefix, t, agg.ID())
 }
 
 func filenameToEvents(fn string) ([]Event, error) {
@@ -87,8 +88,8 @@ func (es *FileSystemEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 }
 
 func (es *FileSystemEventStore) GetAllEvents() ([]Event, error) {
-	var events []Event = make([]Event, es.historySize)
-	gobfiles, err := filepath.Glob(fmt.Sprintf("%s/%s-*.gob", es.rootdir, aggFilenamePrefix))
+	var events []Event = make([]Event, es.EventsInStore)
+	gobfiles, err := filepath.Glob(fmt.Sprintf("%s/%s-*.gob", es.RootDir, aggFilenamePrefix))
 	if err != nil {
 		panic(fmt.Sprintf("cqrs: logic error (bad pattern) in GetAllEvents, %v", err))
 	}
