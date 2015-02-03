@@ -188,8 +188,8 @@ func (s BySequenceNumber) Less(i, j int) bool {
 // data that is very fast to query.
 //
 type EventListener interface {
-	apply(e Event) error
-	reapply(e Event) error
+	Apply(e Event) error
+	Reapply(e Event) error
 }
 
 // An EventStorer is an interface that defines the methods
@@ -296,7 +296,7 @@ func republishEvents() {
 		t := reflect.TypeOf(e)
 		if a, ok := eventListeners[t]; ok {
 			for _, listener := range a {
-				if err := listener.reapply(e); err != nil {
+				if err := listener.Reapply(e); err != nil {
 					msg := fmt.Sprintf("cqrs: error reapplying event %v to listener %v", e, a, err)
 					panic(msg)
 				}
@@ -358,7 +358,7 @@ func publishEvent(e Event) error {
 	e.SetSequenceNumber(atomic.AddUint64(&eventSequenceNumber, 1))
 	if a, ok := eventListeners[t]; ok {
 		for _, listener := range a {
-			if err := listener.apply(e); err != nil {
+			if err := listener.Apply(e); err != nil {
 				return err
 			}
 		}

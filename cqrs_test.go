@@ -135,22 +135,22 @@ func (h SlowDownEchoAggregate) ApplyEvents([]Event) {
 
 type ChannelWriterEventListener struct{}
 
-func (h *ChannelWriterEventListener) apply(e Event) error {
+func (h *ChannelWriterEventListener) Apply(e Event) error {
 	testChannel <- e.(*HeardEvent).Heard
 	return nil
 }
 
-func (h *ChannelWriterEventListener) reapply(e Event) error {
+func (h *ChannelWriterEventListener) Reapply(e Event) error {
 	return nil
 }
 
 type NullEventListener struct{}
 
-func (h *NullEventListener) apply(e Event) error {
+func (h *NullEventListener) Apply(e Event) error {
 	return nil
 }
 
-func (h *NullEventListener) reapply(e Event) error {
+func (h *NullEventListener) Reapply(e Event) error {
 	return nil
 }
 
@@ -212,7 +212,7 @@ func TestFileSystemEventStore(t *testing.T) {
 
 	aggid := AggregateID(1)
 	agg := EchoAggregate{aggid}
-	store := &FileSystemEventStore{rootdir: "/tmp"}
+	store := &FileSystemEventStore{RootDir: "/tmp"}
 	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 	RegisterEventStore(store)
 	RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
@@ -240,7 +240,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 
 		aggid := AggregateID(1)
 		agg := EchoAggregate{aggid}
-		store := &FileSystemEventStore{rootdir: "/tmp"}
+		store := &FileSystemEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
@@ -268,7 +268,7 @@ func TestConcurrencyError(t *testing.T) {
 
 	Convey("Given a fast/slow echo handler, a null listener, and a file system store", t, func() {
 
-		store := &FileSystemEventStore{rootdir: "/tmp"}
+		store := &FileSystemEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
@@ -306,7 +306,7 @@ func TestRetryOnConcurrencyError(t *testing.T) {
 
 	Convey("Given a fast/slow echo handler, a null listener, and a file system store", t, func() {
 
-		store := &FileSystemEventStore{rootdir: "/tmp"}
+		store := &FileSystemEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
@@ -345,7 +345,7 @@ func TestReloadHistory(t *testing.T) {
 
 	Convey("Given an event history", t, func() {
 
-		store := &FileSystemEventStore{rootdir: "/tmp"}
+		store := &FileSystemEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
@@ -395,7 +395,7 @@ func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 
 	Convey("Given an event history", t, func() {
 
-		store := &FileSystemEventStore{rootdir: "/tmp"}
+		store := &FileSystemEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
