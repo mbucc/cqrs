@@ -211,6 +211,8 @@ type EventStorer interface {
 // we check that the number of events on file
 // are the same as the number of events loaded
 // when the command processing began.
+//
+// BUG(mbucc) It's a bug to have an error called ErrConcurrency in Go.
 type ErrConcurrency struct {
 	eventCountNow   int
 	eventCountStart int
