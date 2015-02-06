@@ -19,6 +19,9 @@
 
 // Package cqrs provides a command-query responsibility separation library.
 //
+// STATUS: Not used in production yet.  See BUGS section for a few flaws.
+//
+//
 // It was inspired by (and is largely a translation of) the Edument
 // CQRS starter kit found at https://github.com/edumentab/cqrs-starter-kit
 //
