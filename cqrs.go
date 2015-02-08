@@ -189,7 +189,7 @@ type EventListener interface {
 // An EventStorer is an interface that defines the methods
 // that persist events
 type EventStorer interface {
-	SetEventTypes([]Event)
+	SetEventTypes([]Event) error
 	LoadEventsFor(Aggregator) ([]Event, error)
 	SaveEventsFor(Aggregator, []Event, []Event) error
 	GetAllEvents() ([]Event, error)

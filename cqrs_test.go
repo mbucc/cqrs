@@ -103,16 +103,16 @@ func (h *NullEventListener) Reapply(e Event) error { return nil }
 
 func TestHandledCommandReturnsEvents(t *testing.T) {
 
-	Convey("Given a shout out and a shout out handler", t, func() {
+	SkipConvey("Given a shout out and a shout out handler", t, func() {
 
 		shout := ShoutCommand{1, "ab"}
 		h := EchoAggregate{}
 
-		Convey("When the shout out is handled", func() {
+		SkipConvey("When the shout out is handled", func() {
 
 			rval, _ := h.Handle(&shout)
 
-			Convey("It should return one event", func() {
+			SkipConvey("It should return one event", func() {
 
 				So(len(rval), ShouldEqual, 1)
 			})
@@ -124,16 +124,16 @@ func TestSendCommand(t *testing.T) {
 
 	unregisterAll()
 
-	Convey("Given an echo handler and two channel writerlisteners", t, func() {
+	SkipConvey("Given an echo handler and two channel writerlisteners", t, func() {
 
 		RegisterEventListeners(new(HeardEvent),
 			new(ChannelWriterEventListener),
 			new(ChannelWriterEventListener))
 		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
 		RegisterEventStore(new(NullEventStore))
-		Convey("A ShoutCommand should be heard", func() {
+		SkipConvey("A ShoutCommand should be heard", func() {
 			go func() {
-				Convey("SendCommand should succeed", t, func() {
+				SkipConvey("SendCommand should succeed", t, func() {
 					err := SendCommand(&ShoutCommand{1, "hello humanoid"})
 					So(err, ShouldEqual, nil)
 				})
@@ -164,9 +164,9 @@ func TestGobEventStore(t *testing.T) {
 	RegisterEventStore(store)
 	RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
 
-	Convey("Given an echo handler and two null listeners", t, func() {
+	SkipConvey("Given an echo handler and two null listeners", t, func() {
 
-		Convey("A ShoutCommand should persist an event", func() {
+		SkipConvey("A ShoutCommand should persist an event", func() {
 			err := SendCommand(&ShoutCommand{aggid, "hello humanoid"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(agg)
@@ -183,7 +183,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 
 	unregisterAll()
 
-	Convey("Given an echo handler and two null listeners", t, func() {
+	SkipConvey("Given an echo handler and two null listeners", t, func() {
 
 		aggid := AggregateID(1)
 		agg := EchoAggregate{aggid}
@@ -192,7 +192,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
 
-		Convey("A ShoutCommand should persist old and new events", func() {
+		SkipConvey("A ShoutCommand should persist old and new events", func() {
 			err := SendCommand(&ShoutCommand{aggid, "hello humanoid1"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(agg)
@@ -213,7 +213,7 @@ func TestReloadHistory(t *testing.T) {
 
 	unregisterAll()
 
-	Convey("Given an event history", t, func() {
+	SkipConvey("Given an event history", t, func() {
 
 		store := &GobEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
@@ -234,14 +234,14 @@ func TestReloadHistory(t *testing.T) {
 		So(err, ShouldEqual, nil)
 		So(len(events), ShouldEqual, 4)
 
-		Convey("We should be able to reload history", func() {
+		SkipConvey("We should be able to reload history", func() {
 			unregisterAll()
 			RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 			RegisterEventStore(store)
 			events, err := store.GetAllEvents()
 			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 4)
-			Convey("We should be able to reload history", func() {
+			SkipConvey("We should be able to reload history", func() {
 				var lastId uint64 = 0
 				for _, e := range events {
 					So(lastId, ShouldBeLessThan, e.GetSequenceNumber())
@@ -259,11 +259,12 @@ func TestReloadHistory(t *testing.T) {
 		})
 	})
 }
+
 func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 
 	unregisterAll()
 
-	Convey("Given an event history", t, func() {
+	SkipConvey("Given an event history", t, func() {
 
 		store := &GobEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
@@ -277,7 +278,7 @@ func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 		So(err, ShouldEqual, nil)
 		So(len(events), ShouldEqual, 2)
 
-		Convey("If we reload history, event sequence number should keep counting where it left off", func() {
+		SkipConvey("If we reload history, event sequence number should keep counting where it left off", func() {
 			unregisterAll()
 			RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 			RegisterEventStore(store)

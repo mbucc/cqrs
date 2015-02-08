@@ -49,10 +49,11 @@ type GobEventStore struct {
 // SetEventTypes registers event types
 // so we can reconsitute into an interface.
 // Will panic if the same eventype appears more than once.
-func (fes *GobEventStore) SetEventTypes(types []Event) {
+func (es *GobEventStore) SetEventTypes(types []Event) error {
 	for _, event := range types {
 		gob.Register(event)
 	}
+	return nil
 }
 
 // Generate the file name used for the gob file for this aggregate.

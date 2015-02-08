@@ -39,5 +39,6 @@ func (es *NullEventStore) GetAllEvents() ([]Event, error) {
 }
 
 // SetEventTypes does nothing in the null event store.
-func (es *NullEventStore) SetEventTypes(a []Event) {
+func (es *NullEventStore) SetEventTypes(a []Event) error {
+	return nil
 }
