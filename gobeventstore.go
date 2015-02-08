@@ -30,10 +30,15 @@ import (
 
 const aggFilenamePrefix string = "aggregate"
 
-// Store events in file system.
-// Events are stored in a file named
-// aggregate<aggregate_id>.gob
-// and the events are stored as gob.
+// Store events in file system in gob format.
+// Each aggregate's event history
+// is stored in a separate file.
+//
+// This event store has exponential behavior;
+// at 50,000 events in history it can process
+// 130 events/second.
+// When history is only 25,000 events,
+// it can process 500 events/second.
 //
 type GobEventStore struct {
 	// BUG(mbucc) Modifying the RootDir of a GobEventStore will break things.
