@@ -35,8 +35,8 @@ const aggFilenamePrefix string = "aggregate"
 // aggregate<aggregate_id>.gob
 // and the events are stored as gob.
 //
-type FileSystemEventStore struct {
-	// BUG(mbucc) Modifying the RootDir of a FileSystemEventStore will break things.
+type GobEventStore struct {
+	// BUG(mbucc) Modifying the RootDir of a GobEventStore will break things.
 	RootDir       string
 	EventsInStore uint64
 }
@@ -44,14 +44,14 @@ type FileSystemEventStore struct {
 // SetEventTypes registers event types
 // so we can reconsitute into an interface.
 // Will panic if the same eventype appears more than once.
-func (fes *FileSystemEventStore) SetEventTypes(types []Event) {
+func (fes *GobEventStore) SetEventTypes(types []Event) {
 	for _, event := range types {
 		gob.Register(event)
 	}
 }
 
 // Generate the file name used for the gob file for this aggregate.
-func (es *FileSystemEventStore) FileNameFor(agg Aggregator) string {
+func (es *GobEventStore) FileNameFor(agg Aggregator) string {
 	t := fmt.Sprintf("%T", agg)
 	if strings.HasPrefix(t, "*") {
 		t = t[1:]
@@ -61,7 +61,7 @@ func (es *FileSystemEventStore) FileNameFor(agg Aggregator) string {
 
 // LoadEventsFor opens the gob file for the aggregator and returns any events found.
 // If the file does not exist, an empty list is returned.
-func (es *FileSystemEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
+func (es *GobEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 	var events []Event
 	fn := es.FileNameFor(agg)
 	if _, err := os.Stat(fn); err != nil {
@@ -73,7 +73,7 @@ func (es *FileSystemEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 	return filenameToEvents(fn)
 }
 
-func (es *FileSystemEventStore) GetAllEvents() ([]Event, error) {
+func (es *GobEventStore) GetAllEvents() ([]Event, error) {
 	var events []Event = make([]Event, es.EventsInStore)
 	gobfiles, err := filepath.Glob(fmt.Sprintf("%s/%s-*.gob", es.RootDir, aggFilenamePrefix))
 	if err != nil {
@@ -119,7 +119,7 @@ func filenameToEvents(fn string) ([]Event, error) {
 }
 
 // SaveEventsFor persists the events to disk for the given Aggregate.
-func (es *FileSystemEventStore) SaveEventsFor(agg Aggregator, loaded []Event, result []Event) error {
+func (es *GobEventStore) SaveEventsFor(agg Aggregator, loaded []Event, result []Event) error {
 	fn := es.FileNameFor(agg)
 	tmpfn := fmt.Sprintf("%s.tmp", fn)
 	fp, err := os.OpenFile(tmpfn, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)

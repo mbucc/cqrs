@@ -153,13 +153,13 @@ func TestSendCommand(t *testing.T) {
 	})
 }
 
-func TestFileSystemEventStore(t *testing.T) {
+func TestGobEventStore(t *testing.T) {
 
 	unregisterAll()
 
 	aggid := AggregateID(1)
 	agg := EchoAggregate{aggid}
-	store := &FileSystemEventStore{RootDir: "/tmp"}
+	store := &GobEventStore{RootDir: "/tmp"}
 	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 	RegisterEventStore(store)
 	RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
@@ -187,7 +187,7 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 
 		aggid := AggregateID(1)
 		agg := EchoAggregate{aggid}
-		store := &FileSystemEventStore{RootDir: "/tmp"}
+		store := &GobEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
@@ -215,7 +215,7 @@ func TestReloadHistory(t *testing.T) {
 
 	Convey("Given an event history", t, func() {
 
-		store := &FileSystemEventStore{RootDir: "/tmp"}
+		store := &GobEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
@@ -265,7 +265,7 @@ func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 
 	Convey("Given an event history", t, func() {
 
-		store := &FileSystemEventStore{RootDir: "/tmp"}
+		store := &GobEventStore{RootDir: "/tmp"}
 		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
