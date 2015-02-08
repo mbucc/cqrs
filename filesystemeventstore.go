@@ -1,20 +1,20 @@
 /*
-    Copyright (c) 2013, Edument AB
-    Copyright (c) 2015, Mark Bucciarelli <mkbucc@gmail.com>
+   Copyright (c) 2013, Edument AB
+   Copyright (c) 2015, Mark Bucciarelli <mkbucc@gmail.com>
 
-    Permission to use, copy, modify, and/or distribute this software
-    for any purpose with or without fee is hereby granted, provided
-    that the above copyright notice and this permission notice
-    appear in all copies.
+   Permission to use, copy, modify, and/or distribute this software
+   for any purpose with or without fee is hereby granted, provided
+   that the above copyright notice and this permission notice
+   appear in all copies.
 
-    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
-    WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
-    WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
-    THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
-    CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-    LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
-    NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
-    CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+   WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+   WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
+   THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
+   CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+   LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+   NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+   CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 package cqrs
@@ -22,6 +22,7 @@ package cqrs
 import (
 	"encoding/gob"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -36,8 +37,8 @@ const aggFilenamePrefix string = "aggregate"
 // and the events are stored as gob.
 //
 type FileSystemEventStore struct {
-// BUG(mbucc) Modifying the RootDir of a FileSystemEventStore will break things.
-	RootDir     string
+	// BUG(mbucc) Modifying the RootDir of a FileSystemEventStore will break things.
+	RootDir       string
 	EventsInStore uint64
 }
 
@@ -57,20 +58,6 @@ func (es *FileSystemEventStore) FileNameFor(agg Aggregator) string {
 		t = t[1:]
 	}
 	return fmt.Sprintf("%s/%s-%v_%v.gob", es.RootDir, aggFilenamePrefix, t, agg.ID())
-}
-
-func filenameToEvents(fn string) ([]Event, error) {
-	var events []Event
-	fp, err := os.Open(fn)
-	if err != nil {
-		return nil, fmt.Errorf("cqrs: can't read events from %s, %v", fn, err)
-	}
-	defer fp.Close()
-	decoder := gob.NewDecoder(fp)
-	if err := decoder.Decode(&events); err != nil {
-		return nil, fmt.Errorf("cqrs: can't decode events in %s, %v", fn, err)
-	}
-	return events, nil
 }
 
 // LoadEventsFor opens the gob file for the aggregator and returns any events found.
@@ -108,33 +95,48 @@ func (es *FileSystemEventStore) GetAllEvents() ([]Event, error) {
 
 }
 
+func filenameToEvents(fn string) ([]Event, error) {
+	var events []Event
+	var event Event
+
+	fp, err := os.Open(fn)
+	if err != nil {
+		return nil, fmt.Errorf("cqrs: can't read events from %s, %v", fn, err)
+	}
+	defer fp.Close()
+	dec := gob.NewDecoder(fp)
+	for {
+		event = nil
+		if err := dec.Decode(&event); err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				return nil, fmt.Errorf("cqrs: can't decode event in %s, %v", fn, err)
+			}
+		}
+		events = append(events, event)
+	}
+	return events, nil
+}
+
 // SaveEventsFor persists the events to disk for the given Aggregate.
 func (es *FileSystemEventStore) SaveEventsFor(agg Aggregator, loaded []Event, result []Event) error {
 	fn := es.FileNameFor(agg)
-	tmpfn := fn + ".tmp"
-
-	if currentEvents, err := es.LoadEventsFor(agg); err == nil {
-		if len(currentEvents) != len(loaded) {
-			return &ErrConcurrency{
-				len(loaded), len(currentEvents), agg, result}
-		}
-	} else {
-		return fmt.Errorf("filesystem: can't get current contents of '%s', %s", fn, err)
-	}
-
-	// O_CREATE | O_EXCL is atomic (at least on POSIX systems)
-	// so it ensures only one goroutine
-	// ever updates this aggregate at a time.
+	tmpfn := fmt.Sprintf("%s.tmp", fn)
 	fp, err := os.OpenFile(tmpfn, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("SaveEventsFor(%v): can't open '%s', %s", agg, fn, err)
+		return fmt.Errorf("SaveEventsFor(%+v): can't open '%s', %v", agg, tmpfn, err)
 	}
-	defer fp.Close()
-	if err := gob.NewEncoder(fp).Encode(append(loaded, result...)); err != nil {
-		return fmt.Errorf("SaveEventsFor(%v): can't encode to '%s', %s", agg, tmpfn, err)
+	enc := gob.NewEncoder(fp)
+	for _, e := range append(loaded, result...) {
+		if err := enc.Encode(&e); err != nil {
+			fp.Close()
+			return fmt.Errorf("SaveEventsFor(%+v): can't encode to '%s', %v", agg, fn, err)
+		}
 	}
+	fp.Close()
 	if err := os.Rename(tmpfn, fn); err != nil {
-		return fmt.Errorf("SaveEventsFor(%v): rename failed '%s'-->'%s', %s", agg, tmpfn, fn, err)
+		return fmt.Errorf("SaveEventsFor(%+v): can't rename '%s' to %s, %v", tmpfn, fn, err)
 	}
 	return nil
 }

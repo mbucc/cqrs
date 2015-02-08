@@ -23,7 +23,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -31,29 +30,11 @@ import (
 var testChannel = make(chan string)
 
 type ShoutCommand struct {
-	id               AggregateID
-	Comment          string
-	supportsRollback bool
+	Id      AggregateID
+	Comment string
 }
 
-func (c *ShoutCommand) ID() AggregateID {
-	return c.id
-}
-
-func (c *ShoutCommand) BeginTransaction() error {
-	return nil
-}
-
-func (c *ShoutCommand) Commit() error {
-	return nil
-}
-
-func (c *ShoutCommand) Rollback() error {
-	return nil
-}
-func (c *ShoutCommand) SupportsRollback() bool {
-	return c.supportsRollback
-}
+func (c *ShoutCommand) ID() AggregateID { return c.Id }
 
 type HeardEvent struct {
 	BaseEvent
@@ -61,13 +42,9 @@ type HeardEvent struct {
 	Heard string
 }
 
-func (e *HeardEvent) ID() AggregateID {
-	return e.id
-}
+func (e *HeardEvent) ID() AggregateID { return e.id }
 
-type EchoAggregate struct {
-	id AggregateID
-}
+type EchoAggregate struct{ id AggregateID }
 
 func (eh EchoAggregate) Handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
@@ -76,20 +53,11 @@ func (eh EchoAggregate) Handle(c Command) (a []Event, err error) {
 	return a, nil
 }
 
-func (eh EchoAggregate) ID() AggregateID {
-	return eh.id
-}
+func (eh EchoAggregate) ID() AggregateID               { return eh.id }
+func (eh EchoAggregate) New(id AggregateID) Aggregator { return &EchoAggregate{id} }
+func (eh EchoAggregate) ApplyEvents([]Event)           {}
 
-func (eh EchoAggregate) New(id AggregateID) Aggregator {
-	return &EchoAggregate{id}
-}
-
-func (eh EchoAggregate) ApplyEvents([]Event) {
-}
-
-type NullAggregate struct {
-	id AggregateID
-}
+type NullAggregate struct{ id AggregateID }
 
 func (eh NullAggregate) Handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
@@ -98,27 +66,14 @@ func (eh NullAggregate) Handle(c Command) (a []Event, err error) {
 	return a, nil
 }
 
-func (eh NullAggregate) ID() AggregateID {
-	return eh.id
-}
+func (eh NullAggregate) ID() AggregateID               { return eh.id }
+func (eh NullAggregate) New(id AggregateID) Aggregator { return &NullAggregate{id} }
+func (eh NullAggregate) ApplyEvents([]Event)           {}
 
-func (eh NullAggregate) New(id AggregateID) Aggregator {
-	return &NullAggregate{id}
-}
+type SlowDownEchoAggregate struct{ id AggregateID }
 
-func (eh NullAggregate) ApplyEvents([]Event) {
-}
-
-type SlowDownEchoAggregate struct {
-	id AggregateID
-}
-
-func (h SlowDownEchoAggregate) ID() AggregateID {
-	return h.id
-}
-func (eh SlowDownEchoAggregate) New(id AggregateID) Aggregator {
-	return &SlowDownEchoAggregate{id}
-}
+func (h SlowDownEchoAggregate) ID() AggregateID                { return h.id }
+func (eh SlowDownEchoAggregate) New(id AggregateID) Aggregator { return &SlowDownEchoAggregate{id} }
 
 func (h SlowDownEchoAggregate) Handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
@@ -130,8 +85,7 @@ func (h SlowDownEchoAggregate) Handle(c Command) (a []Event, err error) {
 	return a, nil
 }
 
-func (h SlowDownEchoAggregate) ApplyEvents([]Event) {
-}
+func (h SlowDownEchoAggregate) ApplyEvents([]Event) {}
 
 type ChannelWriterEventListener struct{}
 
@@ -140,25 +94,18 @@ func (h *ChannelWriterEventListener) Apply(e Event) error {
 	return nil
 }
 
-func (h *ChannelWriterEventListener) Reapply(e Event) error {
-	return nil
-}
+func (h *ChannelWriterEventListener) Reapply(e Event) error { return nil }
 
 type NullEventListener struct{}
 
-func (h *NullEventListener) Apply(e Event) error {
-	return nil
-}
-
-func (h *NullEventListener) Reapply(e Event) error {
-	return nil
-}
+func (h *NullEventListener) Apply(e Event) error   { return nil }
+func (h *NullEventListener) Reapply(e Event) error { return nil }
 
 func TestHandledCommandReturnsEvents(t *testing.T) {
 
 	Convey("Given a shout out and a shout out handler", t, func() {
 
-		shout := ShoutCommand{1, "ab", false}
+		shout := ShoutCommand{1, "ab"}
 		h := EchoAggregate{}
 
 		Convey("When the shout out is handled", func() {
@@ -187,7 +134,7 @@ func TestSendCommand(t *testing.T) {
 		Convey("A ShoutCommand should be heard", func() {
 			go func() {
 				Convey("SendCommand should succeed", t, func() {
-					err := SendCommand(&ShoutCommand{1, "hello humanoid", false})
+					err := SendCommand(&ShoutCommand{1, "hello humanoid"})
 					So(err, ShouldEqual, nil)
 				})
 				close(testChannel)
@@ -220,7 +167,7 @@ func TestFileSystemEventStore(t *testing.T) {
 	Convey("Given an echo handler and two null listeners", t, func() {
 
 		Convey("A ShoutCommand should persist an event", func() {
-			err := SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
+			err := SendCommand(&ShoutCommand{aggid, "hello humanoid"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(agg)
 			So(err, ShouldEqual, nil)
@@ -246,95 +193,18 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
 
 		Convey("A ShoutCommand should persist old and new events", func() {
-			err := SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
+			err := SendCommand(&ShoutCommand{aggid, "hello humanoid1"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(agg)
 			So(len(events), ShouldEqual, 1)
 
-			err = SendCommand(&ShoutCommand{aggid, "hello humanoid", false})
+			err = SendCommand(&ShoutCommand{aggid, "hello humanoid2"})
 			So(err, ShouldEqual, nil)
 			events, err = store.LoadEventsFor(agg)
 			So(len(events), ShouldEqual, 2)
 		})
 		Reset(func() {
 			os.Remove(store.FileNameFor(agg))
-		})
-	})
-}
-
-func TestConcurrencyError(t *testing.T) {
-
-	unregisterAll()
-
-	Convey("Given a fast/slow echo handler, a null listener, and a file system store", t, func() {
-
-		store := &FileSystemEventStore{RootDir: "/tmp"}
-		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-		RegisterEventStore(store)
-		RegisterCommandAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
-		agg := SlowDownEchoAggregate{1}
-
-		Convey("Given one slow and then one fast echo", func() {
-			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() {
-				Convey("The slow echo should succeed on retry", t, func() {
-					err := SendCommand(&ShoutCommand{1, "slow hello humanoid", false})
-					So(err, ShouldNotEqual, nil)
-				})
-				wg.Done()
-			}()
-			// Sleep a bit to make sure previous
-			// handler kicks off first.
-			time.Sleep(100 * time.Millisecond)
-			err := SendCommand(&ShoutCommand{1, "hello humanoid", false})
-			So(err, ShouldEqual, nil)
-			events, err := store.LoadEventsFor(agg)
-			So(len(events), ShouldEqual, 1)
-			wg.Wait()
-		})
-		Reset(func() {
-			os.Remove(store.FileNameFor(agg))
-			os.Remove(store.FileNameFor(agg) + ".tmp")
-		})
-	})
-}
-
-func TestRetryOnConcurrencyError(t *testing.T) {
-
-	unregisterAll()
-
-	Convey("Given a fast/slow echo handler, a null listener, and a file system store", t, func() {
-
-		store := &FileSystemEventStore{RootDir: "/tmp"}
-		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-		RegisterEventStore(store)
-		RegisterCommandAggregator(new(ShoutCommand), SlowDownEchoAggregate{})
-
-		agg := SlowDownEchoAggregate{1}
-
-		Convey("Given one slow and then one fast echo", func() {
-			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() {
-				Convey("The slow echo should succeed on retry", t, func() {
-					err := SendCommand(&ShoutCommand{1, "slow hello humanoid", true})
-					So(err, ShouldEqual, nil)
-				})
-				wg.Done()
-			}()
-			// Sleep a bit to make sure previous
-			// handler kicks off first.
-			time.Sleep(100 * time.Millisecond)
-			err := SendCommand(&ShoutCommand{1, "hello humanoid", false})
-			So(err, ShouldEqual, nil)
-			events, err := store.LoadEventsFor(agg)
-			So(len(events), ShouldEqual, 1)
-			wg.Wait()
-		})
-		Reset(func() {
-			os.Remove(store.FileNameFor(agg))
-			os.Remove(store.FileNameFor(agg) + ".tmp")
 		})
 	})
 }
@@ -350,15 +220,15 @@ func TestReloadHistory(t *testing.T) {
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
 
-		So(SendCommand(&ShoutCommand{1, "hello1", true}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{1, "hello1"}), ShouldEqual, nil)
 
 		events, err := store.GetAllEvents()
 		So(err, ShouldEqual, nil)
 		So(len(events), ShouldEqual, 1)
 
-		So(SendCommand(&ShoutCommand{2, "hello2", true}), ShouldEqual, nil)
-		So(SendCommand(&ShoutCommand{2, "hello2a", true}), ShouldEqual, nil)
-		So(SendCommand(&ShoutCommand{3, "hello3", true}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{2, "hello2"}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{2, "hello2a"}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{3, "hello3"}), ShouldEqual, nil)
 
 		events, err = store.GetAllEvents()
 		So(err, ShouldEqual, nil)
@@ -400,8 +270,8 @@ func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 		RegisterEventStore(store)
 		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
 
-		So(SendCommand(&ShoutCommand{1, "hello1", true}), ShouldEqual, nil)
-		So(SendCommand(&ShoutCommand{2, "hello2", true}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{1, "hello1"}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{2, "hello2"}), ShouldEqual, nil)
 
 		events, err := store.GetAllEvents()
 		So(err, ShouldEqual, nil)
@@ -412,7 +282,7 @@ func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 			RegisterEventListeners(new(HeardEvent), new(NullEventListener))
 			RegisterEventStore(store)
 			RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
-			So(SendCommand(&ShoutCommand{1, "hello1", true}), ShouldEqual, nil)
+			So(SendCommand(&ShoutCommand{1, "hello1"}), ShouldEqual, nil)
 			events, err := store.GetAllEvents()
 			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 3)

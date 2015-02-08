@@ -53,15 +53,16 @@ import (
 	"fmt"
 	"reflect"
 	"sync/atomic"
-	"time"
 )
 
-const CommandRetrySleep = 250 * time.Millisecond
+const CommandQueueSize = 1000
 
 var commandAggregator = make(map[reflect.Type]Aggregator)
 var eventListeners = make(map[reflect.Type][]EventListener)
 var eventStore EventStorer
 var registeredEvents []Event
+
+var sem chan int = make(chan int, CommandQueueSize)
 
 // First event gets sequence number 1.
 var eventSequenceNumber uint64 = 0
@@ -102,10 +103,6 @@ type AggregateID int
 // it fails.
 type Command interface {
 	ID() AggregateID
-	SupportsRollback() bool
-	BeginTransaction() error
-	Commit() error
-	Rollback() error
 }
 
 // An Aggregator is a concept borrowed
@@ -140,6 +137,7 @@ type Aggregator interface {
 type CommandHandler interface {
 	Handle(c Command) (e []Event, err error)
 }
+
 // An Event is something that happened
 // as a result of a command;
 // for example, FaceSlapped.
@@ -166,17 +164,10 @@ type Event interface {
 // is stored as an exported struct field
 // so it will can be encoded and decoded
 // by the EventStorer.
-type BaseEvent struct {
-	SequenceNumber uint64
-}
+type BaseEvent struct{ SequenceNumber uint64 }
 
-func (e *BaseEvent) GetSequenceNumber() uint64 {
-	return e.SequenceNumber
-}
-
-func (e *BaseEvent) SetSequenceNumber(n uint64) {
-	e.SequenceNumber = n
-}
+func (e *BaseEvent) GetSequenceNumber() uint64  { return e.SequenceNumber }
+func (e *BaseEvent) SetSequenceNumber(n uint64) { e.SequenceNumber = n }
 
 type BySequenceNumber []Event
 
@@ -202,30 +193,6 @@ type EventStorer interface {
 	LoadEventsFor(Aggregator) ([]Event, error)
 	SaveEventsFor(Aggregator, []Event, []Event) error
 	GetAllEvents() ([]Event, error)
-}
-
-// A concurrency error occurs if,
-// after an Aggregator has loaded old events from the event store
-// and before it has persisted new events resulting from the command processing,
-// another command of the same type comes in
-// and completes it's processing.
-//
-// The check for a consistency error is simple: when writing new events to the store,
-// we check that the number of events on file
-// are the same as the number of events loaded
-// when the command processing began.
-//
-// BUG(mbucc) It's a bug to have an error called ErrConcurrency in Go.
-type ErrConcurrency struct {
-	eventCountNow   int
-	eventCountStart int
-	aggregate       Aggregator
-	newEvents       []Event
-}
-
-func (e *ErrConcurrency) Error() string {
-	return fmt.Sprintf("cqrs: concurrency violation for aggregate %v, %d (start) != %d (now)",
-		e.aggregate, e.eventCountStart, e.eventCountNow)
 }
 
 // For tests.
@@ -380,68 +347,22 @@ func processCommand(c Command, agg Aggregator) error {
 	var oldEvents []Event
 	var newEvents []Event
 	var err error
-	var triesLeft int = 3
 
-	if c.SupportsRollback() {
-		c.BeginTransaction()
-	} else {
-		triesLeft = 1
+	a := agg.New(c.ID())
+	oldEvents, err = eventStore.LoadEventsFor(a)
+	if err == nil {
+		a.ApplyEvents(oldEvents)
+		newEvents, err = a.Handle(c)
 	}
-
-	for ; triesLeft > 0; triesLeft-- {
-		a := agg.New(c.ID())
-		oldEvents, err = eventStore.LoadEventsFor(a)
-		if err == nil {
-			a.ApplyEvents(oldEvents)
-			newEvents, err = a.Handle(c)
-		}
-		if err == nil {
-			for _, event := range newEvents {
-				if err = publishEvent(event); err != nil {
-					break
-				}
+	if err == nil {
+		for _, event := range newEvents {
+			if err = publishEvent(event); err != nil {
+				break
 			}
 		}
-		if err == nil {
-			err = eventStore.SaveEventsFor(a, oldEvents, newEvents)
-
-			if err == nil {
-				triesLeft = 0
-				// If
-				//	- we got a concurrency error
-				//	- we have retries left
-				// then swallow the error, sleep a little,
-				// then try again.
-			} else {
-				if _, ok := err.(*ErrConcurrency); ok {
-					if triesLeft > 1 {
-						err = nil
-						c.Rollback()
-						time.Sleep(CommandRetrySleep)
-					}
-				}
-			}
-		}
-
-		// We only retry when we get a concurrency
-		// error and have retries left.
-		// This case is covered above
-		// where the err is set to nil.
-		// So if err is not nil here,
-		// we have a different error
-		// and want to report it to the caller,
-		// so stop retrying and exit.
-
-		if err != nil {
-			triesLeft = 0
-		}
 	}
-	if c.SupportsRollback() {
-		if err != nil {
-			c.Rollback()
-		} else {
-			c.Commit()
-		}
+	if err == nil {
+		err = eventStore.SaveEventsFor(a, oldEvents, newEvents)
 	}
 	return err
 }
@@ -459,7 +380,10 @@ func processCommand(c Command, agg Aggregator) error {
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if agg, ok := commandAggregator[t]; ok {
-		return processCommand(c, agg)
+		sem <- 1
+		err := processCommand(c, agg)
+		<-sem
+		return err
 	}
 	return errors.New(fmt.Sprint("No aggregate registered for command ", t))
 }
