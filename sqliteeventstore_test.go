@@ -31,7 +31,8 @@ func TestCreateTable(t *testing.T) {
 
 		store := &SqliteEventStore{DataSourceName: "/tmp/cqrs.db"}
 		Convey("Registering an event type creates a table", func() {
-			store.SetEventTypes([]Event{&HeardEvent{}})
+			err := store.SetEventTypes([]Event{&HeardEvent{}})
+			So(err, ShouldEqual, nil)
 			db, err := sql.Open("sqlite3", "/tmp/cqrs.db")
 			So(err, ShouldEqual, nil)
 			defer db.Close()
@@ -41,8 +42,10 @@ func TestCreateTable(t *testing.T) {
 			err = row.Scan(count)
 			So(count, ShouldEqual, 1)
 		})
-		Reset(func() {
-			store.DeleteAllData()
-		})
+		/*
+			Reset(func() {
+				store.DeleteAllData()
+			})
+		*/
 	})
 }

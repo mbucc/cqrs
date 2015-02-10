@@ -21,6 +21,7 @@ package cqrs
 import (
 	"database/sql"
 	"fmt"
+	"github.com/jmoiron/modl"
 	_ "github.com/mattn/go-sqlite3"
 	"os"
 	"path/filepath"
@@ -35,28 +36,6 @@ type SqliteEventStore struct {
 	db             *sql.DB
 }
 
-func (es *SqliteEventStore) createTableIfNeeded(event Event) error {
-	var count int
-
-	sql := "select count(*) from sqlite_master where name = ? and type='table'"
-	stmt, err := es.db.Prepare(sql)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRow(es.eventToTableName(event))
-	err = row.Scan(&count)
-	if err != nil {
-		return err
-	}
-	if count == 0 {
-		// Table exists already, no need to create it.
-		return nil
-	}
-
-	return nil
-}
 
 // SetEventTypes registers event types
 // so we can reconsitute into an interface.
@@ -65,13 +44,12 @@ func (es *SqliteEventStore) SetEventTypes(types []Event) error {
 	if es.db, err = sql.Open("sqlite3", es.DataSourceName); err != nil {
 		return err
 	}
-	if err = es.db.Ping(); err != nil {
-		return err
-	}
+	dbmap := &modl.DbMap{Db: es.db, Dialect: modl.SqliteDialect{}}
 	for _, event := range types {
-		if err := es.createTableIfNeeded(event); err != nil {
-			return err
-		}
+		dbmap.AddTable(t)
+	}
+	if err := dbmap.CreateTablesIfNotExists(); err != nil {
+		return err
 	}
 	return nil
 }
