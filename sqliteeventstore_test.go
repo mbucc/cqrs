@@ -20,9 +20,11 @@ package cqrs
 
 import (
 	"database/sql"
+	"os"
+	"testing"
+
 	_ "github.com/mattn/go-sqlite3"
 	. "github.com/smartystreets/goconvey/convey"
-	"testing"
 )
 
 func TestCreateTable(t *testing.T) {
@@ -38,14 +40,13 @@ func TestCreateTable(t *testing.T) {
 			defer db.Close()
 
 			var count int
-			row := db.QueryRow("select count(*) from sqlite_master where name = 'cqrs.HeardEvent'")
-			err = row.Scan(count)
+			row := db.QueryRow("select count(*) from sqlite_master where type = 'table'")
+			err = row.Scan(&count)
+			So(err, ShouldEqual, nil)
 			So(count, ShouldEqual, 1)
 		})
-		/*
-			Reset(func() {
-				store.DeleteAllData()
-			})
-		*/
+		Reset(func() {
+			os.Remove("/tmp/cqrs.db")
+		})
 	})
 }
