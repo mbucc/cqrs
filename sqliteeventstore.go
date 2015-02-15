@@ -124,7 +124,7 @@ func (es *SqliteEventStore) eventSql(e Event) sqlstrings {
 
 	createfmt := "CREATE TABLE [%s] (%s)"
 	insertfmt := "insert into [%s] (%s) values (%s)"
-	selectfmt := "select %s from [%s] where aggregate_id = ?"
+	selectfmt := "select %s from [%s] where " + AggregateIdFieldName + " = ?"
 	tname := tableName(e)
 	flist := strings.Join(fieldnames, ", ")
 	namedflist := ":" + strings.Join(fieldnames, ", :")
