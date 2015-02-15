@@ -50,3 +50,33 @@ func TestCreateTable(t *testing.T) {
 		})
 	})
 }
+
+func TestCreateTableSqlMatches(t *testing.T) {
+
+	Convey("Given a new Sqlite3 event store", t, func() {
+
+		store := NewSqliteEventStore("/tmp/cqrs.db")
+		Convey("That has an event table", func() {
+			err := store.SetEventTypes([]Event{&HeardEvent{}})
+			So(err, ShouldEqual, nil)
+			db, err := sql.Open("sqlite3", "/tmp/cqrs.db")
+			So(err, ShouldEqual, nil)
+			defer db.Close()
+
+			var count int
+			row := db.QueryRow("select count(*) from sqlite_master where type = 'table'")
+			err = row.Scan(&count)
+			So(err, ShouldEqual, nil)
+			So(count, ShouldEqual, 1)
+			Convey("Reopening event store should not panic", func() {
+				unregisterAll()
+				store = NewSqliteEventStore("/tmp/cqrs.db")
+				err := store.SetEventTypes([]Event{&HeardEvent{}})
+				So(err, ShouldEqual, nil)
+			})
+		})
+		Reset(func() {
+			os.Remove("/tmp/cqrs.db")
+		})
+	})
+}
