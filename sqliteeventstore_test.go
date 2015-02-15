@@ -80,3 +80,49 @@ func TestCreateTableSqlMatches(t *testing.T) {
 		})
 	})
 }
+
+func TestPersistence(t *testing.T) {
+
+	unregisterAll()
+
+	Convey("Given an event history", t, func() {
+
+		store := NewSqliteEventStore("/tmp/cqrs.db")
+		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+		RegisterEventStore(store)
+		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
+
+		So(SendCommand(&ShoutCommand{1, "hello1"}), ShouldEqual, nil)
+
+		events, err := store.GetAllEvents()
+		So(err, ShouldEqual, nil)
+		So(len(events), ShouldEqual, 1)
+
+		So(SendCommand(&ShoutCommand{2, "hello2"}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{2, "hello2a"}), ShouldEqual, nil)
+		So(SendCommand(&ShoutCommand{3, "hello3"}), ShouldEqual, nil)
+
+		events, err = store.GetAllEvents()
+		So(err, ShouldEqual, nil)
+		So(len(events), ShouldEqual, 4)
+
+		Convey("We should be able to reload history", func() {
+			unregisterAll()
+			RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+			RegisterEventStore(store)
+			events, err := store.GetAllEvents()
+			So(err, ShouldEqual, nil)
+			So(len(events), ShouldEqual, 4)
+			Convey("We should be able to reload history", func() {
+				var lastId uint64 = 0
+				for _, e := range events {
+					So(lastId, ShouldBeLessThan, e.GetSequenceNumber())
+					lastId = e.GetSequenceNumber()
+				}
+			})
+		})
+		Reset(func() {
+			os.Remove("/tmp/cqrs.db")
+		})
+	})
+}
