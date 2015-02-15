@@ -164,10 +164,14 @@ type Event interface {
 // is stored as an exported struct field
 // so it will can be encoded and decoded
 // by the EventStorer.
-type BaseEvent struct{ SequenceNumber uint64 }
+type BaseEvent struct {
+	SequenceNumber uint64      `db:"sequence_number"`
+	Id             AggregateID `db:"aggregate_id"`
+}
 
 func (e *BaseEvent) GetSequenceNumber() uint64  { return e.SequenceNumber }
 func (e *BaseEvent) SetSequenceNumber(n uint64) { e.SequenceNumber = n }
+func (e *BaseEvent) ID() AggregateID { return e.Id }
 
 type BySequenceNumber []Event
 

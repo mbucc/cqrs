@@ -39,12 +39,20 @@ type sqlstrings struct {
 }
 
 type SqliteEventStore struct {
-	// BUG(mbucc) Modifying the DataSourceName of a SqliteEventStore will break things.
-	DataSourceName string
-	Tag            string
-	EventsInStore  uint64
+	dataSourceName string
+	tag            string
+	eventsInStore  uint64
 	db             *sqlx.DB
 	sqlcache       map[reflect.Type]sqlstrings
+}
+
+func NewSqliteEventStore(dataSourceName string) *SqliteEventStore {
+	return &SqliteEventStore{
+		dataSourceName: dataSourceName,
+		tag:            "db",
+		eventsInStore:  0,
+		sqlcache:       make(map[reflect.Type]sqlstrings),
+	}
 }
 
 // SetEventTypes registers event types
@@ -88,13 +96,14 @@ func makeTypedFieldList(fieldnames []string, fieldnameToValue map[string]reflect
 	}
 	return strings.Join(a, ", ")
 }
+
 func tableName(e Event) string {
 	t := reflectx.Deref(reflect.TypeOf(e))
 	return t.PkgPath() + "." + t.Name()
 }
 
 func (es *SqliteEventStore) eventSql(e Event) sqlstrings {
-	m := reflectx.NewMapperFunc(es.Tag, strings.ToLower)
+	m := reflectx.NewMapperFunc(es.tag, strings.ToLower)
 	fieldnameToValue := m.FieldMap(reflect.ValueOf(e))
 
 	// Sort fieldnames so our create table SQL
@@ -119,6 +128,7 @@ func (es *SqliteEventStore) eventSql(e Event) sqlstrings {
 		fmt.Sprintf(insertfmt, tname, flist, namedflist),
 		fmt.Sprintf(selectfmt, flist, tname)}
 }
+
 func (es *SqliteEventStore) databaseCreateTableSql(e Event) string {
 	var dbsql string
 	sqlfmt := "select sql from sqlite_master where type = 'table' and name = '%s'"
@@ -133,9 +143,9 @@ func (es *SqliteEventStore) databaseCreateTableSql(e Event) string {
 func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 	var err error
 
-	es.db, err = sqlx.Connect("sqlite3", es.DataSourceName)
+	es.db, err = sqlx.Connect("sqlite3", es.dataSourceName)
 	if err != nil {
-		panic(fmt.Sprintf("cqrs: can't open sqlite database '%s', %v", es.DataSourceName, err))
+		panic(fmt.Sprintf("cqrs: can't open sqlite database '%s', %v", es.dataSourceName, err))
 	}
 
 	es.sqlcache = make(map[reflect.Type]sqlstrings)
@@ -159,7 +169,7 @@ func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 				panic(fmt.Sprintf(msgfmt, event, dbsql, newsql))
 			}
 		} else {
-			fmt.Printf("cqrs: creating table in %s:'%s'\n", es.DataSourceName, newsql)
+			fmt.Printf("cqrs: creating table in %s:'%s'\n", es.dataSourceName, newsql)
 			es.db.MustExec(newsql)
 		}
 	}
@@ -180,8 +190,8 @@ func (es *SqliteEventStore) DeleteAllData() error {
 			return err
 		}
 	}
-	if _, err := os.Stat(es.DataSourceName); err == nil {
-		if err := os.Remove(es.DataSourceName); err != nil {
+	if _, err := os.Stat(es.dataSourceName); err == nil {
+		if err := os.Remove(es.dataSourceName); err != nil {
 			return err
 		}
 	}
@@ -196,8 +206,8 @@ func (es *SqliteEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 }
 
 func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
-	var events []Event = make([]Event, es.EventsInStore)
-	gobfiles, err := filepath.Glob(fmt.Sprintf("%s/%s-*.gob", es.DataSourceName, aggFilenamePrefix))
+	var events []Event = make([]Event, es.eventsInStore)
+	gobfiles, err := filepath.Glob(fmt.Sprintf("%s/%s-*.gob", es.dataSourceName, aggFilenamePrefix))
 	if err != nil {
 		panic(fmt.Sprintf("cqrs: logic error (bad pattern) in GetAllEvents, %v", err))
 	}

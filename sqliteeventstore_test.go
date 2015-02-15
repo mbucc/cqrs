@@ -31,7 +31,7 @@ func TestCreateTable(t *testing.T) {
 
 	Convey("Given a new Sqlite3 event store", t, func() {
 
-		store := &SqliteEventStore{DataSourceName: "/tmp/cqrs.db"}
+		store := NewSqliteEventStore("/tmp/cqrs.db")
 		Convey("Registering an event type creates a table", func() {
 			err := store.SetEventTypes([]Event{&HeardEvent{}})
 			So(err, ShouldEqual, nil)
