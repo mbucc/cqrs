@@ -19,33 +19,72 @@
 
 // Package cqrs provides a command-query responsibility separation library.
 //
-// STATUS: Not used in production yet.  See BUGS section for a few flaws.
+//    STATUS
 //
+//    Under active development. The API is not stable.
+//    Performance degrades exponentially with size of event history.
 //
 // It was inspired by (and is largely a translation of) the Edument
 // CQRS starter kit found at https://github.com/edumentab/cqrs-starter-kit
+//
+// The most succinct description of CQRS that I have read
+// was from a comment made by dragonwriter on Hackernews,
+// who said that the idea behind event sourcing (and CQRS) is that
+//
+//    modeling complex interactive systems through their static state
+//    rather than modeling the interactions directly as the principal
+//    domain objects is invariably futile.
 //
 // A command is a request that is made to your system,
 // which your system either accepts or rejects.
 // An accepted command generates one or more events,
 // each of which is published to one or more listeners.
 //
-// Queries are read-only and are built by event listeners.
-// A read model is typically optimized
-// (denormalized, etc.) for fast reads.
+// A query is read-only, and returns data from a read model
+// that was created by an event listener.
+// A read model is typically optimized for fast reads,
+// perhaps storing a denormalized in-memory projection
+// of some subset of the event history.
 //
-// The responsibility for updating data
-// is separated from reading the data.
-// Commands update state
-// and do not provide any read access to data.
-// Event listeners build read models,
-// which provide read-only access to data.
+// The read and write responsibilities are separated
+// (segregated).  Only a command can write data
+// and only a query can read data.
 //
-// Another way that responsibility is spread is
-// that business rules are satisfied by
-// defining a different Aggregate for each "consistency
-// boundary" (the minimum set of data required to
-// guarantee that a business rule is kept).
+// Finally, an aggregate defines a "consistency-boundary"
+// that enables your software to guarantee that a rule is kept.
+// For example, your poker league software
+// must ensure that for every game played,
+// the pay-in must equal the pay-out.
+// If you app allows each player to enter their
+// using their phone,
+// to guarantee this invariant (rule) is kept,
+// you need to draw a boundary (aka "lock")
+// around all players in that game.
+// The command might be EnterEndingStake,
+// and the aggregate might by PokerGame.
+// You can find more discussion of aggregates
+// here: https://github.com/mbucc/cqrs/wiki/Aggregate.
+//
+// Some notes on implementation:
+//   * only events are persisted.
+//   * a command has one and only one aggregate
+//   * every time a command is received, it's aggregate
+//     is instatiated, and all events associated with
+//     that aggregate are retrieved and replayed, after which
+//     the new command is applied.
+//   * a semaphore channel is used to ensure commands
+//     are processed in the order received.
+//   * when cqrs is restarted, it re-reads the entire event history
+//     and replays each event to it's listeners.  This way you can
+//     add a new event listener, restart the daemon, and that
+//     read model will be rebuilt with then entire event history.
+//   * an AggregateID is currently an integer, but is more typically
+//     a GUID in event source and CQRS systems.
+//
+// All this leads to a system that gets exponentially slower
+// as the event history grows.// You can see current profiling information here:
+// https://github.com/mbucc/cqrsprof/blob/master/cqrsprof.svg
+//
 package cqrs
 
 import (
@@ -154,24 +193,28 @@ type Event interface {
 	GetSequenceNumber() uint64
 }
 
-// BaseEvent exports the SequenceNumber field
-// which must be export for the GetAllEvents() method
-// of an EventStorer to work correctly.
+// A BaseEvent provides the minimum fields
+// (with the appropriate visibility)
+// and methods to implement an event.
+// It is meant to be embedded in your
+// custom events.
 //
-// If you don't embed BaseEvent in your event,
-// make sure the data you need
-// to respond to a GetSequenceNumber() call
-// is stored as an exported struct field
-// so it will can be encoded and decoded
-// by the EventStorer.
+// Note that the annotations are used
+// by the SqlEventStore when creating
+// fields names for the tables that
+// persist the particular event.
 type BaseEvent struct {
-	SequenceNumber uint64      `db:"sequence_number"`
-	Id             AggregateID `db:"aggregate_id"`
+	// A serial number for each event.
+	// Unique across all commands.
+	SequenceNumber uint64 `db:"sequence_number"`
+	// The aggregate instance that processed the command
+	// that generated this event.
+	Id AggregateID `db:"aggregate_id"`
 }
 
 func (e *BaseEvent) GetSequenceNumber() uint64  { return e.SequenceNumber }
 func (e *BaseEvent) SetSequenceNumber(n uint64) { e.SequenceNumber = n }
-func (e *BaseEvent) ID() AggregateID { return e.Id }
+func (e *BaseEvent) ID() AggregateID            { return e.Id }
 
 type BySequenceNumber []Event
 

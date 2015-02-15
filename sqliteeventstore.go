@@ -21,7 +21,6 @@ package cqrs
 import (
 	"database/sql"
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -38,6 +37,7 @@ type sqlstrings struct {
 	SelectSql string
 }
 
+// A SqliteEventStore persists events to a Sqlite3 database.
 type SqliteEventStore struct {
 	dataSourceName string
 	tag            string
@@ -140,6 +140,17 @@ func (es *SqliteEventStore) databaseCreateTableSql(e Event) string {
 	return dbsql
 }
 
+// SetEventTypes opens a connection to the database,
+// and creates tables to store events if necessary.
+//
+// If it can't open the database, it panics.
+//
+// If the table already exists, but has a different
+// structure than required by the event, it panics.
+//
+// Note that you can control the column names by using
+// a "db" tag in your event struct; see BaseEvent for
+// examples.
 func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 	var err error
 
@@ -182,20 +193,6 @@ func (es *SqliteEventStore) eventToTableName(event Event) string {
 		s = s[1:]
 	}
 	return s
-}
-
-func (es *SqliteEventStore) DeleteAllData() error {
-	if es.db != nil {
-		if err := es.db.Close(); err != nil {
-			return err
-		}
-	}
-	if _, err := os.Stat(es.dataSourceName); err == nil {
-		if err := os.Remove(es.dataSourceName); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // LoadEventsFor opens the gob file for the aggregator and returns any events found.
