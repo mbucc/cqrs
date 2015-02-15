@@ -31,6 +31,14 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const (
+	// The tag label used in event structs to define field names.
+	DbTag = "db"
+	// The field name used for AggregateID in event structs.
+	// BUG(mbucc) Dry up handling of AggregateID field name (here and in BaseEvent).
+	AggregateIdFieldName = "aggregate_id"
+)
+
 type sqlstrings struct {
 	CreateSql string
 	InsertSql string
@@ -40,7 +48,6 @@ type sqlstrings struct {
 // A SqliteEventStore persists events to a Sqlite3 database.
 type SqliteEventStore struct {
 	dataSourceName string
-	tag            string
 	eventsInStore  uint64
 	db             *sqlx.DB
 	sqlcache       map[reflect.Type]sqlstrings
@@ -49,7 +56,6 @@ type SqliteEventStore struct {
 func NewSqliteEventStore(dataSourceName string) *SqliteEventStore {
 	return &SqliteEventStore{
 		dataSourceName: dataSourceName,
-		tag:            "db",
 		eventsInStore:  0,
 		sqlcache:       make(map[reflect.Type]sqlstrings),
 	}
@@ -103,7 +109,7 @@ func tableName(e Event) string {
 }
 
 func (es *SqliteEventStore) eventSql(e Event) sqlstrings {
-	m := reflectx.NewMapperFunc(es.tag, strings.ToLower)
+	m := reflectx.NewMapperFunc(DbTag, strings.ToLower)
 	fieldnameToValue := m.FieldMap(reflect.ValueOf(e))
 
 	// Sort fieldnames so our create table SQL
