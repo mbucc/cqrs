@@ -94,6 +94,11 @@ func gotypeToSqlite3type(t reflect.Type) string {
 	return fmt.Sprintf("text")
 }
 
+func aggregateIdIndexSql(e Event) string {
+	sqlfmt := "create index [%s.aggregate_id] on [%s] (" + AggregateIdFieldName + ")"
+	tname := tableName(e)
+	return fmt.Sprintf(sqlfmt, tname, tname)
+}
 func makeTypedFieldList(fieldnames []string, fieldnameToValue map[string]reflect.Value) string {
 	var a []string = make([]string, len(fieldnames))
 	for i, name := range fieldnames {
@@ -188,6 +193,7 @@ func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 		} else {
 			fmt.Printf("cqrs: creating table in %s:'%s'\n", es.dataSourceName, newsql)
 			es.db.MustExec(newsql)
+			es.db.MustExec(aggregateIdIndexSql(event))
 		}
 	}
 	return nil
