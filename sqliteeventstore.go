@@ -40,23 +40,23 @@ const (
 	// is case-sensitive, and Sqlite upper cases the
 	// CREATE TABLE clause when it stores the schema
 	// BUG(mbucc) Ensure no SQL-injection via wierd chars in Go struct names and fields.
-	CreateSqlFmt        = "CREATE TABLE [%s] (%s)"
-	InsertSqlFmt        = "insert into [%s] (%s) values (%s)"
-	SelectSqlFmt        = "select %s from [%s] where " + AggregateIdFieldName + " = ?"
-	CountAllFmt         = "select count(*) from [%s]"
-	AggregateIdIndexFmt = "create index [%s.aggregate_id] on [%s] (" + AggregateIdFieldName + ")"
+	CreateSqlFmt              = "CREATE TABLE [%s] (%s)"
+	InsertSqlFmt              = "insert into [%s] (%s) values (%s)"
+	SelectSqlFmt              = "select %s from [%s] where " + AggregateIdFieldName + " = ?"
+	CountAllFmt               = "select count(*) from [%s]"
+	CreateIndexAggregateIdFmt = "create index [%s.aggregate_id] on [%s] (" + AggregateIdFieldName + ")"
 
 	// The tag label used in event structs to define field names.
 	DbTag = "db"
 )
 
 type sqlstrings struct {
-	CountAll         string
-	Create           string
-	Insert           string
-	Select           string
-	TableName        string
-	AggregateIdIndex string
+	CountAll               string
+	Create                 string
+	Insert                 string
+	Select                 string
+	TableName              string
+	CreateIndexAggregateId string
 }
 
 // A SqliteEventStore persists events to a Sqlite3 database.
@@ -149,7 +149,7 @@ func (es *SqliteEventStore) loadEventInfo(e Event) {
 		fmt.Sprintf(InsertSqlFmt, tname, flist, namedflist),
 		fmt.Sprintf(SelectSqlFmt, flist, tname),
 		tableName(e),
-		fmt.Sprintf(AggregateIdIndexFmt, tname, tname)}
+		fmt.Sprintf(CreateIndexAggregateIdFmt, tname, tname)}
 	es.eventinfo[reflect.TypeOf(e)] = tmp
 }
 
@@ -208,7 +208,7 @@ func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 		} else {
 			fmt.Printf("cqrs: creating schema in %s", es.datasource)
 			es.db.MustExec(q.Create)
-			es.db.MustExec(q.AggregateIdIndex)
+			es.db.MustExec(q.CreateIndexAggregateId)
 		}
 	}
 	return nil
@@ -257,5 +257,16 @@ func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
 
 // SaveEventsFor persists the events to disk for the given Aggregate.
 func (es *SqliteEventStore) SaveEventsFor(agg Aggregator, loaded []Event, result []Event) error {
+	for _, event := range result {
+		info, ok := es.eventinfo[reflect.TypeOf(event)]
+		if !ok {
+			panic(fmt.Sprintf("cqrs: tried to save an event type (%T) that was not registered", event))
+		}
+		q := info.queries.Insert
+		_, err := es.db.NamedExec(q, event)
+		if err != nil {
+			panic(fmt.Sprintf("cqrs: insert sql failed (%s) with event %v", q, event))
+		}
+	}
 	return nil
 }
