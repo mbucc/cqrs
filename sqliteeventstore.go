@@ -21,7 +21,6 @@ package cqrs
 import (
 	"database/sql"
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -32,17 +31,30 @@ import (
 )
 
 const (
-	// The tag label used in event structs to define field names.
-	DbTag = "db"
 	// The field name used for AggregateID in event structs.
 	// BUG(mbucc) Dry up handling of AggregateID field name (here and in BaseEvent).
 	AggregateIdFieldName = "aggregate_id"
+
+	// The CREATE TABLE clause must be upper case,
+	// as the check that the table schema is correct
+	// is case-sensitive, and Sqlite upper cases the
+	// CREATE TABLE clause when it stores the schema
+	// BUG(mbucc) Ensure no SQL-injection via wierd chars in Go struct names and fields.
+	CreateSqlFmt        = "CREATE TABLE [%s] (%s)"
+	InsertSqlFmt        = "insert into [%s] (%s) values (%s)"
+	SelectSqlFmt        = "select %s from [%s] where " + AggregateIdFieldName + " = ?"
+	AggregateIdIndexFmt = "create index [%s.aggregate_id] on [%s] (" + AggregateIdFieldName + ")"
+
+	// The tag label used in event structs to define field names.
+	DbTag = "db"
 )
 
 type sqlstrings struct {
-	CreateSql string
-	InsertSql string
-	SelectSql string
+	Create           string
+	Insert           string
+	Select           string
+	TableName        string
+	AggregateIdIndex string
 }
 
 // A SqliteEventStore persists events to a Sqlite3 database.
@@ -50,19 +62,17 @@ type SqliteEventStore struct {
 	dataSourceName string
 	eventsInStore  uint64
 	db             *sqlx.DB
-	sqlcache       map[reflect.Type]sqlstrings
+	schemaCache    map[reflect.Type]sqlstrings
 }
 
 func NewSqliteEventStore(dataSourceName string) *SqliteEventStore {
 	return &SqliteEventStore{
 		dataSourceName: dataSourceName,
 		eventsInStore:  0,
-		sqlcache:       make(map[reflect.Type]sqlstrings),
+		schemaCache:    make(map[reflect.Type]sqlstrings),
 	}
 }
 
-// SetEventTypes registers event types
-// so we can reconsitute into an interface.
 // Code in this function is from jmoiron/modl
 // and is under MIT License.
 func gotypeToSqlite3type(t reflect.Type) string {
@@ -94,11 +104,6 @@ func gotypeToSqlite3type(t reflect.Type) string {
 	return fmt.Sprintf("text")
 }
 
-func aggregateIdIndexSql(e Event) string {
-	sqlfmt := "create index [%s.aggregate_id] on [%s] (" + AggregateIdFieldName + ")"
-	tname := tableName(e)
-	return fmt.Sprintf(sqlfmt, tname, tname)
-}
 func makeTypedFieldList(fieldnames []string, fieldnameToValue map[string]reflect.Value) string {
 	var a []string = make([]string, len(fieldnames))
 	for i, name := range fieldnames {
@@ -127,17 +132,16 @@ func (es *SqliteEventStore) eventSql(e Event) sqlstrings {
 	}
 	sort.Strings(fieldnames)
 
-	createfmt := "CREATE TABLE [%s] (%s)"
-	insertfmt := "insert into [%s] (%s) values (%s)"
-	selectfmt := "select %s from [%s] where " + AggregateIdFieldName + " = ?"
 	tname := tableName(e)
 	flist := strings.Join(fieldnames, ", ")
 	namedflist := ":" + strings.Join(fieldnames, ", :")
 	typedflist := makeTypedFieldList(fieldnames, fieldnameToValue)
 	return sqlstrings{
-		fmt.Sprintf(createfmt, tname, typedflist),
-		fmt.Sprintf(insertfmt, tname, flist, namedflist),
-		fmt.Sprintf(selectfmt, flist, tname)}
+		fmt.Sprintf(CreateSqlFmt, tname, typedflist),
+		fmt.Sprintf(InsertSqlFmt, tname, flist, namedflist),
+		fmt.Sprintf(SelectSqlFmt, flist, tname),
+		tableName(e),
+		fmt.Sprintf(AggregateIdIndexFmt, tname, tname)}
 }
 
 func (es *SqliteEventStore) databaseCreateTableSql(e Event) string {
@@ -151,6 +155,8 @@ func (es *SqliteEventStore) databaseCreateTableSql(e Event) string {
 	return dbsql
 }
 
+// SetEventTypes registers event types
+// so we can reconsitute into an interface.
 // SetEventTypes opens a connection to the database,
 // and creates tables to store events if necessary.
 //
@@ -170,12 +176,12 @@ func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 		panic(fmt.Sprintf("cqrs: can't open sqlite database '%s', %v", es.dataSourceName, err))
 	}
 
-	es.sqlcache = make(map[reflect.Type]sqlstrings)
+	es.schemaCache = make(map[reflect.Type]sqlstrings)
 
 	for _, event := range events {
 
-		es.sqlcache[reflect.TypeOf(event)] = es.eventSql(event)
-		newsql := es.sqlcache[reflect.TypeOf(event)].CreateSql
+		q := es.eventSql(event)
+		es.schemaCache[reflect.TypeOf(event)] = q
 
 		dbsql := es.databaseCreateTableSql(event)
 
@@ -186,14 +192,14 @@ func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 			// will fail if that same table
 			// has camel case field names.
 			// So, we use case-sensitive comparison for SQL.
-			if newsql != dbsql {
+			if q.Create != dbsql {
 				msgfmt := "Table exists for %T, but SQL differs: '%s' != '%s'"
-				panic(fmt.Sprintf(msgfmt, event, dbsql, newsql))
+				panic(fmt.Sprintf(msgfmt, event, dbsql, q.Create))
 			}
 		} else {
-			fmt.Printf("cqrs: creating table in %s:'%s'\n", es.dataSourceName, newsql)
-			es.db.MustExec(newsql)
-			es.db.MustExec(aggregateIdIndexSql(event))
+			fmt.Printf("cqrs: creating schema in %s", es.dataSourceName)
+			es.db.MustExec(q.Create)
+			es.db.MustExec(q.AggregateIdIndex)
 		}
 	}
 	return nil
@@ -215,24 +221,26 @@ func (es *SqliteEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 }
 
 func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
-	var events []Event = make([]Event, es.eventsInStore)
-	gobfiles, err := filepath.Glob(fmt.Sprintf("%s/%s-*.gob", es.dataSourceName, aggFilenamePrefix))
-	if err != nil {
-		panic(fmt.Sprintf("cqrs: logic error (bad pattern) in GetAllEvents, %v", err))
-	}
+	/*
 
-	for _, fn := range gobfiles {
-		newevents, err := filenameToEvents(fn)
-		if err != nil {
-			return nil, err
+		for eventType, eventSql := range es.schemaCache {
+			esliceType := reflect.SliceOf(eventType)
+			eslice := reflect.MakeSlice(esliceType, 0, 0).Interface()
+			err := es.db.Select(&eslice, eventSql.SelectAll)
+			if err != nil {
+				break
+			}
+			for _, event := range eslice {
+				events = append(events, &event)
+			}
 		}
-		events = append(events, newevents...)
-	}
 
-	sort.Sort(BySequenceNumber(events))
+		sort.Sort(BySequenceNumber(events))
 
-	return events, nil
+		return events, nil
 
+	*/
+	return nil, nil
 }
 
 // SaveEventsFor persists the events to disk for the given Aggregate.
