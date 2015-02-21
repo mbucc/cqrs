@@ -43,6 +43,7 @@ const (
 	CreateSqlFmt        = "CREATE TABLE [%s] (%s)"
 	InsertSqlFmt        = "insert into [%s] (%s) values (%s)"
 	SelectSqlFmt        = "select %s from [%s] where " + AggregateIdFieldName + " = ?"
+	CountAllFmt         = "select count(*) from [%s]"
 	AggregateIdIndexFmt = "create index [%s.aggregate_id] on [%s] (" + AggregateIdFieldName + ")"
 
 	// The tag label used in event structs to define field names.
@@ -50,6 +51,7 @@ const (
 )
 
 type sqlstrings struct {
+	CountAll         string
 	Create           string
 	Insert           string
 	Select           string
@@ -142,6 +144,7 @@ func (es *SqliteEventStore) loadEventInfo(e Event) {
 
 	tmp := es.eventinfo[reflect.TypeOf(e)]
 	tmp.queries = sqlstrings{
+		fmt.Sprintf(CountAllFmt, tname),
 		fmt.Sprintf(CreateSqlFmt, tname, typedflist),
 		fmt.Sprintf(InsertSqlFmt, tname, flist, namedflist),
 		fmt.Sprintf(SelectSqlFmt, flist, tname),
@@ -226,8 +229,20 @@ func (es *SqliteEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 	return events, nil
 }
 
+// BUG(mbucc) Will overflow on 32-bit system with more than 2,147,483,647 records in event history database.
 func (es *SqliteEventStore) count() int {
-return 0
+	var n, total int
+
+	for _, info := range es.eventinfo {
+		q := info.queries.CountAll
+		err := es.db.Get(&n, info.queries.CountAll)
+		if err != nil {
+			panic(fmt.Sprintf("cqrs: error running '%s', %v", q, err))
+		}
+		total += n
+	}
+
+	return total
 }
 
 func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
