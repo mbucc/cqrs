@@ -58,18 +58,20 @@ type sqlstrings struct {
 }
 
 // A SqliteEventStore persists events to a Sqlite3 database.
-type SqliteEventStore struct {
-	dataSourceName string
-	eventsInStore  uint64
-	db             *sqlx.DB
-	schemaCache    map[reflect.Type]sqlstrings
+type eventInfo struct {
+	queries sqlstrings
 }
 
-func NewSqliteEventStore(dataSourceName string) *SqliteEventStore {
+type SqliteEventStore struct {
+	datasource string
+	db         *sqlx.DB
+	eventinfo  map[reflect.Type]eventInfo
+}
+
+func NewSqliteEventStore(datasource string) *SqliteEventStore {
 	return &SqliteEventStore{
-		dataSourceName: dataSourceName,
-		eventsInStore:  0,
-		schemaCache:    make(map[reflect.Type]sqlstrings),
+		datasource: datasource,
+		eventinfo:  make(map[reflect.Type]eventInfo),
 	}
 }
 
@@ -118,7 +120,8 @@ func tableName(e Event) string {
 	return t.PkgPath() + "." + t.Name()
 }
 
-func (es *SqliteEventStore) eventSql(e Event) sqlstrings {
+func (es *SqliteEventStore) loadEventInfo(e Event) {
+
 	m := reflectx.NewMapperFunc(DbTag, strings.ToLower)
 	fieldnameToValue := m.FieldMap(reflect.ValueOf(e))
 
@@ -136,12 +139,15 @@ func (es *SqliteEventStore) eventSql(e Event) sqlstrings {
 	flist := strings.Join(fieldnames, ", ")
 	namedflist := ":" + strings.Join(fieldnames, ", :")
 	typedflist := makeTypedFieldList(fieldnames, fieldnameToValue)
-	return sqlstrings{
+
+	tmp := es.eventinfo[reflect.TypeOf(e)]
+	tmp.queries = sqlstrings{
 		fmt.Sprintf(CreateSqlFmt, tname, typedflist),
 		fmt.Sprintf(InsertSqlFmt, tname, flist, namedflist),
 		fmt.Sprintf(SelectSqlFmt, flist, tname),
 		tableName(e),
 		fmt.Sprintf(AggregateIdIndexFmt, tname, tname)}
+	es.eventinfo[reflect.TypeOf(e)] = tmp
 }
 
 func (es *SqliteEventStore) databaseCreateTableSql(e Event) string {
@@ -171,17 +177,17 @@ func (es *SqliteEventStore) databaseCreateTableSql(e Event) string {
 func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 	var err error
 
-	es.db, err = sqlx.Connect("sqlite3", es.dataSourceName)
+	es.db, err = sqlx.Connect("sqlite3", es.datasource)
 	if err != nil {
-		panic(fmt.Sprintf("cqrs: can't open sqlite database '%s', %v", es.dataSourceName, err))
+		panic(fmt.Sprintf("cqrs: can't open sqlite database '%s', %v", es.datasource, err))
 	}
 
-	es.schemaCache = make(map[reflect.Type]sqlstrings)
+	es.eventinfo = make(map[reflect.Type]eventInfo)
 
 	for _, event := range events {
 
-		q := es.eventSql(event)
-		es.schemaCache[reflect.TypeOf(event)] = q
+		es.loadEventInfo(event)
+		q := es.eventinfo[reflect.TypeOf(event)].queries
 
 		dbsql := es.databaseCreateTableSql(event)
 
@@ -197,7 +203,7 @@ func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 				panic(fmt.Sprintf(msgfmt, event, dbsql, q.Create))
 			}
 		} else {
-			fmt.Printf("cqrs: creating schema in %s", es.dataSourceName)
+			fmt.Printf("cqrs: creating schema in %s", es.datasource)
 			es.db.MustExec(q.Create)
 			es.db.MustExec(q.AggregateIdIndex)
 		}
@@ -220,27 +226,18 @@ func (es *SqliteEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 	return events, nil
 }
 
+func (es *SqliteEventStore) count() int {
+return 0
+}
+
 func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
-	/*
+	var events []Event
 
-		for eventType, eventSql := range es.schemaCache {
-			esliceType := reflect.SliceOf(eventType)
-			eslice := reflect.MakeSlice(esliceType, 0, 0).Interface()
-			err := es.db.Select(&eslice, eventSql.SelectAll)
-			if err != nil {
-				break
-			}
-			for _, event := range eslice {
-				events = append(events, &event)
-			}
-		}
+	n := es.count()
+	s := reflect.ValueOf(&events).Elem()
+	s.Set(reflect.MakeSlice(reflect.TypeOf(events), n, n))
 
-		sort.Sort(BySequenceNumber(events))
-
-		return events, nil
-
-	*/
-	return nil, nil
+	return events, nil
 }
 
 // SaveEventsFor persists the events to disk for the given Aggregate.
