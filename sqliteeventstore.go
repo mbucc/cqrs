@@ -40,9 +40,10 @@ const (
 	// is case-sensitive, and Sqlite upper cases the
 	// CREATE TABLE clause when it stores the schema
 	// BUG(mbucc) Ensure no SQL-injection via wierd chars in Go struct names and fields.
-	CreateSqlFmt              = "CREATE TABLE [%s] (%s)"
-	InsertSqlFmt              = "insert into [%s] (%s) values (%s)"
-	SelectSqlFmt              = "select %s from [%s] where " + AggregateIdFieldName + " = ?"
+	CreateFmt                 = "CREATE TABLE [%s] (%s)"
+	InsertFmt                 = "insert into [%s] (%s) values (%s)"
+	SelectByAggregateIdFmt    = "select %s from [%s] where " + AggregateIdFieldName + " = ?"
+	SelectAllFmt              = "select %s from [%s]"
 	CountAllFmt               = "select count(*) from [%s]"
 	CreateIndexAggregateIdFmt = "create index [%s.aggregate_id] on [%s] (" + AggregateIdFieldName + ")"
 
@@ -55,15 +56,16 @@ type sqlstrings struct {
 	Create                 string
 	Insert                 string
 	Select                 string
+	SelectAll              string
 	TableName              string
 	CreateIndexAggregateId string
 }
 
-// A SqliteEventStore persists events to a Sqlite3 database.
 type eventInfo struct {
 	queries sqlstrings
 }
 
+// A SqliteEventStore persists events to a Sqlite3 database.
 type SqliteEventStore struct {
 	datasource string
 	db         *sqlx.DB
@@ -145,9 +147,10 @@ func (es *SqliteEventStore) loadEventInfo(e Event) {
 	tmp := es.eventinfo[reflect.TypeOf(e)]
 	tmp.queries = sqlstrings{
 		fmt.Sprintf(CountAllFmt, tname),
-		fmt.Sprintf(CreateSqlFmt, tname, typedflist),
-		fmt.Sprintf(InsertSqlFmt, tname, flist, namedflist),
-		fmt.Sprintf(SelectSqlFmt, flist, tname),
+		fmt.Sprintf(CreateFmt, tname, typedflist),
+		fmt.Sprintf(InsertFmt, tname, flist, namedflist),
+		fmt.Sprintf(SelectByAggregateIdFmt, flist, tname),
+		fmt.Sprintf(SelectAllFmt, flist, tname),
 		tableName(e),
 		fmt.Sprintf(CreateIndexAggregateIdFmt, tname, tname)}
 	es.eventinfo[reflect.TypeOf(e)] = tmp
@@ -229,7 +232,7 @@ func (es *SqliteEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 	return events, nil
 }
 
-// BUG(mbucc) Will overflow on 32-bit system with more than 2,147,483,647 records in event history database.
+// BUG(mbucc) Overflows on a 32-bit system with 2,147,483,647 events.
 func (es *SqliteEventStore) count() int {
 	var n, total int
 
@@ -246,11 +249,29 @@ func (es *SqliteEventStore) count() int {
 }
 
 func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
-	var events []Event
 
 	n := es.count()
-	s := reflect.ValueOf(&events).Elem()
-	s.Set(reflect.MakeSlice(reflect.TypeOf(events), n, n))
+
+	events := make([]Event, n, n)
+
+	i := 0
+	for typ, info := range es.eventinfo {
+		q := info.queries.SelectAll
+
+		ptr := reflect.New(reflect.SliceOf(typ))
+		iface := ptr.Interface()
+
+		err := es.db.Select(iface, q)
+		if err != nil {
+			panic(fmt.Sprintf("cqrs: error running '%s', %v", q, err))
+		}
+
+		slce := ptr.Elem()
+		for j := 0; j < slce.Len(); j++ {
+			events[i] = slce.Index(j).Interface().(Event)
+		}
+
+	}
 
 	return events, nil
 }
