@@ -424,6 +424,8 @@ func processCommand(c Command, agg Aggregator) error {
 // and a concurrency error is encountered,
 // SendCommand will try to process the command
 // a total of three times.
+//
+// BUG(mbucc) The concurrency logic was written with Go training wheels still on.
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if agg, ok := commandAggregator[t]; ok {
