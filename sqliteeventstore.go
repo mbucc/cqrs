@@ -269,6 +269,7 @@ func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
 		slce := ptr.Elem()
 		for j := 0; j < slce.Len(); j++ {
 			events[i] = slce.Index(j).Interface().(Event)
+			i++
 		}
 
 	}
