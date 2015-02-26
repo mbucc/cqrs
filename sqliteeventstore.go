@@ -44,6 +44,7 @@ const (
 	InsertFmt                 = "insert into [%s] (%s) values (%s)"
 	SelectByAggregateIdFmt    = "select %s from [%s] where " + AggregateIdFieldName + " = ?"
 	SelectAllFmt              = "select %s from [%s]"
+	CountFmt                  = "select count(*) from [%s] where " + AggregateIdFieldName + " = ?"
 	CountAllFmt               = "select count(*) from [%s]"
 	CreateIndexAggregateIdFmt = "create index [%s.aggregate_id] on [%s] (" + AggregateIdFieldName + ")"
 
@@ -52,6 +53,7 @@ const (
 )
 
 type sqlstrings struct {
+	Count                  string
 	CountAll               string
 	Create                 string
 	Insert                 string
@@ -146,6 +148,7 @@ func (es *SqliteEventStore) loadEventInfo(e Event) {
 
 	tmp := es.eventinfo[reflect.TypeOf(e)]
 	tmp.queries = sqlstrings{
+		fmt.Sprintf(CountFmt, tname),
 		fmt.Sprintf(CountAllFmt, tname),
 		fmt.Sprintf(CreateFmt, tname, typedflist),
 		fmt.Sprintf(InsertFmt, tname, flist, namedflist),
@@ -233,12 +236,19 @@ func (es *SqliteEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
 }
 
 // BUG(mbucc) Overflows on a 32-bit system with 2,147,483,647 events.
-func (es *SqliteEventStore) count() int {
+func (es *SqliteEventStore) count(id AggregateID) int {
 	var n, total int
+	var err error
+	var q string
 
 	for _, info := range es.eventinfo {
-		q := info.queries.CountAll
-		err := es.db.Get(&n, info.queries.CountAll)
+		if isZero(id) {
+			q = info.queries.CountAll
+			err = es.db.Get(&n, q)
+		} else {
+			q = info.queries.Count
+			err = es.db.Get(&n, q, id)
+		}
 		if err != nil {
 			panic(fmt.Sprintf("cqrs: error running '%s', %v", q, err))
 		}
@@ -248,20 +258,38 @@ func (es *SqliteEventStore) count() int {
 	return total
 }
 
-func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
+func isZero(id AggregateID) bool {
+	return reflect.ValueOf(id).Interface() == reflect.Zero(reflect.TypeOf(id)).Interface()
+}
 
-	n := es.count()
+func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
+	var id AggregateID
+	return es.GetEvents(id)
+}
+
+func (es *SqliteEventStore) GetEvents(id AggregateID) ([]Event, error) {
+	var err error
+
+	n := es.count(id)
 
 	events := make([]Event, n, n)
 
 	i := 0
 	for typ, info := range es.eventinfo {
-		q := info.queries.SelectAll
+		q := info.queries.Select
+		if isZero(id) {
+			q = info.queries.SelectAll
+		}
 
 		ptr := reflect.New(reflect.SliceOf(typ))
 		iface := ptr.Interface()
 
-		err := es.db.Select(iface, q)
+		if isZero(id) {
+			err = es.db.Select(iface, q)
+		} else {
+			err = es.db.Select(iface, q, id)
+		}
+
 		if err != nil {
 			panic(fmt.Sprintf("cqrs: error running '%s', %v", q, err))
 		}
