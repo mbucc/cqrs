@@ -264,10 +264,10 @@ func isZero(id AggregateID) bool {
 
 func (es *SqliteEventStore) GetAllEvents() ([]Event, error) {
 	var id AggregateID
-	return es.GetEvents(id)
+	return es.getEvents(id)
 }
 
-func (es *SqliteEventStore) GetEvents(id AggregateID) ([]Event, error) {
+func (es *SqliteEventStore) getEvents(id AggregateID) ([]Event, error) {
 	var err error
 
 	n := es.count(id)
