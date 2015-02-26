@@ -126,3 +126,33 @@ func TestPersistence(t *testing.T) {
 		})
 	})
 }
+
+func TestSqliteStorePersistsOldAndNewEvents(t *testing.T) {
+
+	unregisterAll()
+
+	Convey("Given an echo handler and two null listeners", t, func() {
+
+		aggid := AggregateID(1)
+		agg := EchoAggregate{aggid}
+		store := NewSqliteEventStore("/tmp/cqrs.db")
+		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
+		RegisterEventStore(store)
+		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
+
+		Convey("A ShoutCommand should persist old and new events", func() {
+			err := SendCommand(&ShoutCommand{aggid, "hello humanoid1"})
+			So(err, ShouldEqual, nil)
+			events, err := store.LoadEventsFor(agg)
+			So(len(events), ShouldEqual, 1)
+
+			err = SendCommand(&ShoutCommand{aggid, "hello humanoid2"})
+			So(err, ShouldEqual, nil)
+			events, err = store.LoadEventsFor(agg)
+			So(len(events), ShouldEqual, 2)
+		})
+		Reset(func() {
+			os.Remove("/tmp/cqrs.db")
+		})
+	})
+}
