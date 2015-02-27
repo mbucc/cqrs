@@ -203,6 +203,7 @@ type Event interface {
 // by the SqlEventStore when creating
 // fields names for the tables that
 // persist the particular event.
+// BUG(mbucc) If an event type embeds BaseEvent and shadows Id field, sql won't save the id.
 type BaseEvent struct {
 	// A serial number for each event.
 	// Unique across all commands.

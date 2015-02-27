@@ -48,7 +48,7 @@ type EchoAggregate struct{ id AggregateID }
 func (eh EchoAggregate) Handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
 	c1 := c.(*ShoutCommand)
-	a[0] = &HeardEvent{BaseEvent:BaseEvent{Id:c1.ID()}, Heard: c1.Comment}
+	a[0] = &HeardEvent{BaseEvent: BaseEvent{Id: c1.ID()}, Heard: c1.Comment}
 	return a, nil
 }
 
@@ -61,7 +61,7 @@ type NullAggregate struct{ id AggregateID }
 func (eh NullAggregate) Handle(c Command) (a []Event, err error) {
 	a = make([]Event, 1)
 	c1 := c.(*ShoutCommand)
-	a[0] = &HeardEvent{BaseEvent:BaseEvent{Id:c1.ID()}, Heard: c1.Comment}
+	a[0] = &HeardEvent{BaseEvent: BaseEvent{Id: c1.ID()}, Heard: c1.Comment}
 	return a, nil
 }
 
@@ -80,7 +80,7 @@ func (h SlowDownEchoAggregate) Handle(c Command) (a []Event, err error) {
 	if strings.HasPrefix(c1.Comment, "slow") {
 		time.Sleep(250 * time.Millisecond)
 	}
-	a[0] = &HeardEvent{BaseEvent:BaseEvent{Id:c1.ID()}, Heard: c1.Comment}
+	a[0] = &HeardEvent{BaseEvent: BaseEvent{Id: c1.ID()}, Heard: c1.Comment}
 	return a, nil
 }
 
