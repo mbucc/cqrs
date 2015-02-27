@@ -144,6 +144,7 @@ func TestSqliteStorePersistsOldAndNewEvents(t *testing.T) {
 			err := SendCommand(&ShoutCommand{aggid, "hello humanoid1"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(agg)
+			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 1)
 
 			err = SendCommand(&ShoutCommand{aggid, "hello humanoid2"})

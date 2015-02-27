@@ -231,8 +231,7 @@ func (es *SqliteEventStore) eventToTableName(event Event) string {
 // LoadEventsFor opens the gob file for the aggregator and returns any events found.
 // If the file does not exist, an empty list is returned.
 func (es *SqliteEventStore) LoadEventsFor(agg Aggregator) ([]Event, error) {
-	var events []Event
-	return events, nil
+	return es.getEvents(agg.ID())
 }
 
 // BUG(mbucc) Overflows on a 32-bit system with 2,147,483,647 events.
