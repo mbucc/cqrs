@@ -69,7 +69,7 @@
 //   * only events are persisted.
 //   * a command has one and only one aggregate
 //   * every time a command is received, it's aggregate
-//     is instatiated, and all events associated with
+//     is instantiated, and all events associated with
 //     that aggregate are retrieved and replayed, after which
 //     the new command is applied.
 //   * a semaphore channel is used to ensure commands
