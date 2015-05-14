@@ -144,20 +144,42 @@ type Command interface {
 	ID() AggregateID
 }
 
-// An Aggregator is a concept borrowed
-// from domain driven design,
-// and defines a "noun" in your system
-// that contains enough state to guarantee
-// that one (or more) of you business
+// An Aggregator defines a "noun" in your system;
+// for example, a PokerGame.
+// Its role is maintain enough state
+// to ensure
+// that one (or more) of your business
 // rules are kept.
+// The Aggregator cannot access
+// a read-model for state; it can only use
+// the state it holds and the Command contents.
 //
-// This was the hardest concept for me to grasp
-// when writing this library; for more information
-// on Aggregates, see https://github.com/mbucc/cqrs/wiki/Aggregate
+// Every command type is registered with one and
+// only one Aggregator.
 //
-// Note that this implementation is a bit simpler
-// than others in that the CommandHandler interface
-// is embedded in the Aggregator interface.
+// The life-cycle of an Aggregator starts when
+// a Command of that type is received
+// via the SendCommand routine, which
+// creates an instance
+// of the Aggregator registered to that Command
+// via the aggregator's New() method.
+//
+// Next, we get all historical events
+// for this Aggragator, and replay them
+// through the Aggregator with ApplyEvents.
+// Finally, the Aggregator is asked to Handle
+// the command,
+// and it can validates the command
+// against whatever state was rebuilt by the
+// replay of entire event history.
+//
+// A low-hanging fruit to greatly speed things up
+// is to add snapshot event type that saves current
+// state of aggregator; then we scan
+// event history to fine the most
+// recent snapshot event
+// and then replay from
+// that event forward.
 type Aggregator interface {
 	CommandHandler
 	ID() AggregateID
@@ -421,12 +443,12 @@ func processCommand(c Command, agg Aggregator) error {
 // publishes and persists any events generated
 // by the command processing.
 //
-// If the command supports transactions,
-// and a concurrency error is encountered,
-// SendCommand will try to process the command
-// a total of three times.
-//
-// BUG(mbucc) The concurrency logic was written with Go training wheels still on.
+// Uses a semaphore to serialize command
+// processing.
+// Technically, we only need to serialize
+// by command type (since every command
+// type has one and only one aggregator, and
+// aggregators are independent).
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if agg, ok := commandAggregator[t]; ok {
