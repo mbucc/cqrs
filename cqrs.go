@@ -30,7 +30,7 @@
 // can write data and only a query can read data.
 //
 // A Command is a request to your system, which is either
-// accepted or rejected.  A command can create zero or more
+// accepted or rejected.  A Command can create zero or more
 // events.
 //
 // Queries subscribe to events, and build a view of your
@@ -38,24 +38,25 @@
 // for example by storing an in-menory, denormalized summary
 // that is specific to one screen in your application.
 //
-// Finally, an aggregator defines a "consistency-boundary"
-// that guarantees a business rule is kept.  An aggregate
-// can only use it's own state and the state in the command
+// Finally, an Aggregator defines a "consistency-boundary"
+// that guarantees a business rule is kept.  An Aggregator
+// can only use it's own state and the state in the Command
 // to do it's job.
 //
-// Some implementation notes:
+//   Notes:
 //
 //   * only events are persisted.
 //
 //   * all events are persisted.
 //
-//   * a command has one and only one aggregator
+//   * a Command has one and only one Aggregator
 //
-//   * synchronous-only; commands are processed one-
+//   * synchronous-only; Commands are processed one-
 //     at-a-time, in the order they are received.
 //
 // From profiling (https://github.com/mbucc/cqrsprof/blob/master/cqrsprof.svg)
-// adding a snapshots is the obvious way to speed things up.
+// performance degrades exponentially.  Adding snapshots of Aggregators is 
+// the obvious way to speed things up.
 //
 package cqrs
 
@@ -110,7 +111,7 @@ type Command interface {
 // a read-model for state; it can only use
 // the state it holds and the Command contents.
 //
-// Every command type is registered with one and
+// Every Command type is registered with one and
 // only one Aggregator.
 //
 // The life-cycle of an Aggregator starts when
@@ -118,20 +119,20 @@ type Command interface {
 // via the SendCommand routine, which
 // creates an instance
 // of the Aggregator registered to that Command
-// via the aggregator's New() method.
+// via the Aggregator's New() method.
 //
 // Next, we get all historical events
 // for this Aggregator, and replay them
 // through the Aggregator with ApplyEvents.
 // Finally, the Aggregator is asked to Handle
-// the command,
-// and it validates the command
+// the Command,
+// and it validates the Command
 // against the "aggregate" state rebuilt by the
 // event history replay.
 //
 // Performance: Add a snapshot event type
 // that saves current
-// aggregator state.  When replaying
+// Aggregator state.  When replaying
 // the event history, find the most
 // recent snapshot event
 // and only replay from
@@ -144,9 +145,9 @@ type Aggregator interface {
 }
 
 // CommandHandler is the interface
-// that wraps the Handle(c Command) command, and will typically:
-//   - validate the command data
-//   - generate events for a valid command
+// that wraps the Handle(c Command) Command, and will typically:
+//   - validate the Command data
+//   - generate events for a valid Command
 //   - try to persist events
 //
 // Note that in this implementation,
@@ -156,14 +157,14 @@ type CommandHandler interface {
 }
 
 // An Event is something that happened
-// as a result of a command;
+// as a result of a Command;
 // for example, FaceSlapped.
 type Event interface {
 	ID() AggregateID
 
 	// We give each event a unique number.
 	//
-	// Numbers for events within a command are not
+	// Numbers for events within a Command are not
 	// guaranteed to be sequential; the only guarantee
 	// is that a later event will have a higher number
 	// than an earlier event.
@@ -183,9 +184,9 @@ type Event interface {
 // BUG(mbucc) If an event type embeds BaseEvent and shadows Id field, sql won't save the id.
 type BaseEvent struct {
 	// A serial number for each event.
-	// Unique across all commands.
+	// Unique across all Commands.
 	SequenceNumber uint64 `db:"sequence_number"`
-	// The aggregate instance that processed the command
+	// The Aggregator instance that processed the Command
 	// that generated this event.
 	Id AggregateID `db:"aggregate_id"`
 }
@@ -239,7 +240,7 @@ func RegisterCommandAggregator(c Command, a Aggregator) {
 	}
 	atype := reflect.TypeOf(a)
 
-	// The aggregator must be a struct
+	// The Aggregator must be a struct
 	// so that we can instantiate it
 	// in a way that we get to access
 	// it's members in a panic-free way.
@@ -391,8 +392,8 @@ func processCommand(c Command, agg Aggregator) error {
 	return err
 }
 
-// SendCommand instantiates the aggregate associated with this command,
-// loads events we've stored for this aggregate,
+// SendCommand instantiates the Aggregator associated with this command,
+// loads events we've stored for this Aggregator,
 // processes the command,
 // publishes and persists any events generated
 // by the command processing.
@@ -401,8 +402,8 @@ func processCommand(c Command, agg Aggregator) error {
 // processing.
 // Technically, we only need to serialize
 // by command type (since every command
-// type has one and only one aggregator, and
-// aggregators are independent).
+// type has one and only one Aggregator, and
+// Aggregators are independent).
 func SendCommand(c Command) error {
 	t := reflect.TypeOf(c)
 	if agg, ok := commandAggregator[t]; ok {
@@ -411,5 +412,5 @@ func SendCommand(c Command) error {
 		<-sem
 		return err
 	}
-	return errors.New(fmt.Sprint("No aggregate registered for command ", t))
+	return errors.New(fmt.Sprint("No Aggregator registered for command ", t))
 }
