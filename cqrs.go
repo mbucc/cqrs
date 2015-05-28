@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2013, Edument AB
+    Copyright (c) 2013, Edument AB
     Copyright (c) 2015, Mark Bucciarelli <mkbucc@gmail.com>
 
     Permission to use, copy, modify, and/or distribute this software
@@ -24,66 +24,38 @@
 //    Under active development. The API is not stable.
 //    Performance degrades exponentially with size of event history.
 //
-// It was inspired by (and is largely a translation of) the Edument
-// CQRS starter kit found at https://github.com/edumentab/cqrs-starter-kit
+// This implementation is largely a translation of the Edument
+// CQRS starter kit (https://github.com/edumentab/cqrs-starter-kit).
+// Read and write responsibilities are separated---only a command
+// can write data and only a query can read data.
 //
-// The most succinct description of CQRS that I have read
-// was from a comment made by dragonwriter on Hackernews,
-// who said that the idea behind event sourcing (and CQRS) is that
+// A Command is a request to your system, which is either
+// accepted or rejected.  A command can create zero or more
+// events.
 //
-//    modeling complex interactive systems through their static state
-//    rather than modeling the interactions directly as the principal
-//    domain objects is invariably futile.
+// Queries subscribe to events, and build a view of your
+// event history that is read-only and optimized for speed,
+// for example by storing an in-menory, denormalized summary
+// that is specific to one screen in your application.
 //
-// A command is a request that is made to your system,
-// which your system either accepts or rejects.
-// An accepted command generates one or more events,
-// each of which is published to one or more listeners.
+// Finally, an aggregator defines a "consistency-boundary"
+// that guarantees a business rule is kept.  An aggregate
+// can only use it's own state and the state in the command
+// to do it's job.
 //
-// A query is read-only, and returns data from a read model
-// that was created by an event listener.
-// A read model is typically optimized for fast reads,
-// perhaps storing a denormalized in-memory projection
-// of some subset of the event history.
+// Some implementation notes:
 //
-// The read and write responsibilities are separated
-// (segregated).  Only a command can write data
-// and only a query can read data.
-//
-// Finally, an aggregate defines a "consistency-boundary"
-// that enables your software to guarantee that a rule is kept.
-// For example, your poker league software
-// must ensure that for every game played,
-// the pay-in must equal the pay-out.
-// If you app allows each player to enter their
-// using their phone,
-// to guarantee this invariant (rule) is kept,
-// you need to draw a boundary (aka "lock")
-// around all players in that game.
-// The command might be EnterEndingStake,
-// and the aggregate might by PokerGame.
-// You can find more discussion of aggregates
-// here: https://github.com/mbucc/cqrs/wiki/Aggregate.
-//
-// Some notes on implementation:
 //   * only events are persisted.
-//   * a command has one and only one aggregate
-//   * every time a command is received, it's aggregate
-//     is instantiated, and all events associated with
-//     that aggregate are retrieved and replayed, after which
-//     the new command is applied.
-//   * a semaphore channel is used to ensure commands
-//     are processed in the order received.
-//   * when cqrs is restarted, it re-reads the entire event history
-//     and replays each event to it's listeners.  This way you can
-//     add a new event listener, restart the daemon, and that
-//     read model will be rebuilt with then entire event history.
-//   * an AggregateID is currently an integer, but is more typically
-//     a GUID in event source and CQRS systems.
 //
-// All this leads to a system that gets exponentially slower
-// as the event history grows.// You can see current profiling information here:
-// https://github.com/mbucc/cqrsprof/blob/master/cqrsprof.svg
+//   * all events are persisted.
+//
+//   * a command has one and only one aggregator
+//
+//   * synchronous-only; commands are processed one-
+//     at-a-time, in the order they are received.
+//
+// From profiling (https://github.com/mbucc/cqrsprof/blob/master/cqrsprof.svg)
+// adding a snapshots is the obvious way to speed things up.
 //
 package cqrs
 
@@ -106,49 +78,33 @@ var sem chan int = make(chan int, CommandQueueSize)
 // First event gets sequence number 1.
 var eventSequenceNumber uint64 = 0
 
-// An AggregateID is a unique identifier for an Aggregator instance.
+// An AggregateID is a unique identifier
+// for an Aggregator instance.
 //
-// All Events and Commands are associated with an aggregate instance.
+// For example, let's say your application
+// is for a poker league, and in every poker game
+// the total pay-in must equal the pay-out.
 //
-// This will probably change to use a so-called
-// globally unique identifier.
-// I started with using an int
-// because I didn't understand guids.
-// If your random number generator is good,
-// a guid should be fine; you would need to
-// generate 326,000,000 billion guids before
-// the chance of a duplicate hit's 1%.
-// There is still the issue of poor database
-// index performance,
-// but that can be measured
-// and I expect it is not a real issue
-// for the vast majority of sites
-// (and certainly mine!).
+// The noun (Aggregator) is PokerGame and
+// each game has a different id (AggregateID).
 //
-// Here is a really good writeup on guids:
-// http://blog.stephencleary.com/2010/11/few-words-on-guids.html
-type AggregateID int
+type AggregateID uint32
 
 // A Command is an action
 // that can be accepted or rejected.
-// For example, MoreDrinksWench!
-// might be a command in a medieval
-// misogynistic kind of cafe.
 //
-// If cqrs encounters a concurrency error
-// and your Command implementation supports
-// rollbacks, cqrs will try to process the
-// command a total of three times before
-// it fails.
+// In this implementation,
+// every Command is associated
+// with one and only one Aggregator.
 type Command interface {
 	ID() AggregateID
 }
 
 // An Aggregator defines a "noun" in your system;
 // for example, a PokerGame.
-// Its role is maintain enough state
-// to ensure
-// that one (or more) of your business
+// It's job is to maintain enough state
+// so it can ensure
+// that one (or more) business
 // rules are kept.
 // The Aggregator cannot access
 // a read-model for state; it can only use
@@ -165,20 +121,20 @@ type Command interface {
 // via the aggregator's New() method.
 //
 // Next, we get all historical events
-// for this Aggragator, and replay them
+// for this Aggregator, and replay them
 // through the Aggregator with ApplyEvents.
 // Finally, the Aggregator is asked to Handle
 // the command,
-// and it can validates the command
-// against whatever state was rebuilt by the
-// replay of entire event history.
+// and it validates the command
+// against the "aggregate" state rebuilt by the
+// event history replay.
 //
-// A low-hanging fruit to greatly speed things up
-// is to add snapshot event type that saves current
-// state of aggregator; then we scan
-// event history to fine the most
+// Performance: Add a snapshot event type
+// that saves current
+// aggregator state.  When replaying
+// the event history, find the most
 // recent snapshot event
-// and then replay from
+// and only replay from
 // that event forward.
 type Aggregator interface {
 	CommandHandler
@@ -205,8 +161,8 @@ type CommandHandler interface {
 type Event interface {
 	ID() AggregateID
 
-	// We count atomically and give each event
-	// a unique number.
+	// We give each event a unique number.
+	//
 	// Numbers for events within a command are not
 	// guaranteed to be sequential; the only guarantee
 	// is that a later event will have a higher number
@@ -216,7 +172,6 @@ type Event interface {
 }
 
 // A BaseEvent provides the minimum fields
-// (with the appropriate visibility)
 // and methods to implement an event.
 // It is meant to be embedded in your
 // custom events.
@@ -250,7 +205,6 @@ func (s BySequenceNumber) Less(i, j int) bool {
 // An EventListener is typically a read model,
 // for example, an in-memory denormalized summary of your
 // data that is very fast to query.
-//
 type EventListener interface {
 	Apply(e Event) error
 	Reapply(e Event) error
