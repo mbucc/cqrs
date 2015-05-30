@@ -161,9 +161,7 @@ type CommandHandler interface {
 // for example, FaceSlapped.
 type Event interface {
 	ID() AggregateID
-
-	// An event is numbered in the order it was published.
-	// Events are published as part of cqrs.SendCommand().
+	// See BaseEvent for notes on event sequence number.
 	SetSequenceNumber(uint64)
 	GetSequenceNumber() uint64
 }
@@ -179,8 +177,8 @@ type Event interface {
 // persist the particular event.
 // BUG(mbucc) If an event type embeds BaseEvent and shadows Id field, sql won't save the id.
 type BaseEvent struct {
-	// A serial number for each event.
-	// Unique across all Commands.
+	// An event is numbered in the order it was published.
+	// Events are published as part of cqrs.SendCommand().
 	SequenceNumber uint64 `db:"sequence_number"`
 	// The Aggregator instance that processed the Command
 	// that generated this event.
