@@ -162,12 +162,8 @@ type CommandHandler interface {
 type Event interface {
 	ID() AggregateID
 
-	// We give each event a unique number.
-	//
-	// Numbers for events within a Command are not
-	// guaranteed to be sequential; the only guarantee
-	// is that a later event will have a higher number
-	// than an earlier event.
+	// An event is numbered in the order it was published.
+	// Events are published as part of cqrs.SendCommand().
 	SetSequenceNumber(uint64)
 	GetSequenceNumber() uint64
 }
