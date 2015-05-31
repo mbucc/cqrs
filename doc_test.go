@@ -27,7 +27,7 @@ func Example_sqlStore() {
 	RegisterEventStore(store)
 	RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
 
-	c := &ShoutCommand{1, "hello humanoid1"}
+	c := &ShoutCommand{1, "Hello World!"}
 	err := SendCommand(c)
 	if err != nil {
 		fmt.Println("cqrs: command %v failed: %v", c, err)
