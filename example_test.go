@@ -26,8 +26,8 @@ import (
 	"github.com/mbucc/cqrs"
 )
 
-// Our toy aggregate only needs the command
-// to ensure the business rules are kept,
+// Our toy aggregate only needs the command state
+// to ensure the one business rule is kept,
 // so we only have one instance (ID) of this
 // aggregate for the entire system.
 const HelloWorldAggregateID = 0
@@ -45,7 +45,7 @@ type ShoutSomething struct {
 
 func (c *ShoutSomething) ID() cqrs.AggregateID {
 	// A command has one and only one aggregate,
-	// so we can return constant here.
+	// so we can return the constant here.
 	return HelloWorldAggregateID
 }
 
@@ -62,13 +62,13 @@ type HeardSomething struct {
 
 func (e *HeardSomething) ID() cqrs.AggregateID {
 	// It's possible this event was spawned by some other
-	// comand, so don't use contstant here.
+	// comand, so don't use the constant here.
 	return e.Id
 }
 
 //---------------------------------------------------------------------------
 //
-//                               Q U E R I E S 
+//                               Q U E R I E S
 //
 //---------------------------------------------------------------------------
 
@@ -81,7 +81,7 @@ func (p *EventCount) Apply(e cqrs.Event) error   {
 	return nil
 }
 
-// Reapply is called when cqrs daemon is restarted.
+// Called when cqrs daemon is restarted.
 func (p *EventCount) Reapply(e cqrs.Event) error {
 	p.N += 1
 	return nil
@@ -134,6 +134,9 @@ func (eh EchoAggregate) ApplyEvents([]cqrs.Event) {
 
 func Example() {
 
+	// Since cqrs registers state at the package level,
+	// delete state so multiple tests run within on
+	// process don't interact with each other.
 	cqrs.UnregisterAll()
 	ClearTestData()
 
@@ -159,13 +162,12 @@ func Example() {
 	fmt.Printf("total events = %v\n", count.N)
 
 	// If we don't delete the database, the second time this
-	// test runs the event count is two, as event history 
+	// test runs the event count is two, as event history
 	// replays on startup!
 	os.Remove("testdb")
 
-	// Output: 
+	// Output:
 	// cqrs: creating schema in testdb
 	// cqrs: command &{Id:1 Comment:} failed: you must shout something
 	// total events = 1
-
 }
