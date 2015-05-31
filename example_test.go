@@ -21,7 +21,6 @@ package cqrs_test
 import (
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/mbucc/cqrs"
 )
@@ -91,7 +90,7 @@ func (p *EventCount) Reapply(e cqrs.Event) error {
 //
 //                             A G G R E G A T E
 //
-// Business rules:
+// Business rule:
 //
 //      1. We don't echo an empty string.
 //
@@ -135,12 +134,13 @@ func (eh EchoAggregate) ApplyEvents([]cqrs.Event) {
 func Example() {
 
 	// Since cqrs registers state at the package level,
-	// delete state so multiple tests run within on
-	// process don't interact with each other.
+	// when running tests (which all run within the same
+	// process), we clear this package-level state so the
+	// tests don't interact.
 	cqrs.UnregisterAll()
 	ClearTestData()
 
-	store := cqrs.NewSqliteEventStore("testdb")
+	store := cqrs.NewSqliteEventStore(testdb)
 	count := new(EventCount)
 
 	cqrs.RegisterEventListeners(new(HeardSomething), count)
@@ -161,13 +161,8 @@ func Example() {
 
 	fmt.Printf("total events = %v\n", count.N)
 
-	// If we don't delete the database, the second time this
-	// test runs the event count is two, as event history
-	// replays on startup!
-	os.Remove("testdb")
-
 	// Output:
-	// cqrs: creating schema in testdb
+	// cqrs: creating schema in /tmp/testcqrs.db
 	// cqrs: command &{Id:1 Comment:} failed: you must shout something
 	// total events = 1
 }
