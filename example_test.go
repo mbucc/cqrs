@@ -110,7 +110,7 @@ func (eh EchoAggregate) ApplyEvents([]cqrs.Event) {
 	// if it has that aggregate's ID.
 }
 
-func Example_sqlStore() {
+func Example() {
 
 	store := cqrs.NewSqliteEventStore("/tmp/cqrs.db")
 	cqrs.RegisterEventListeners(new(HeardSomething), new(cqrs.NullEventListener))
