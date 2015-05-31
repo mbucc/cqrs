@@ -20,7 +20,7 @@ package cqrs
 
 import "fmt"
 
-func Example_sql() {
+func Example_SqlEventStore() {
 
 	store := NewSqliteEventStore("/tmp/cqrs.db")
 	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
