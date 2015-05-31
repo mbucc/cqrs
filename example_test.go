@@ -21,6 +21,7 @@ package cqrs_test
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/mbucc/cqrs"
 )
@@ -63,6 +64,27 @@ func (e *HeardSomething) ID() cqrs.AggregateID {
 	// It's possible this event was spawned by some other
 	// comand, so don't use contstant here.
 	return e.Id
+}
+
+//---------------------------------------------------------------------------
+//
+//                               Q U E R I E S 
+//
+//---------------------------------------------------------------------------
+
+type EventCount struct{
+	N	int
+}
+
+func (p *EventCount) Apply(e cqrs.Event) error   {
+	p.N += 1
+	return nil
+}
+
+// Reapply is called when cqrs daemon is restarted.
+func (p *EventCount) Reapply(e cqrs.Event) error {
+	p.N += 1
+	return nil
 }
 
 //---------------------------------------------------------------------------
@@ -112,8 +134,13 @@ func (eh EchoAggregate) ApplyEvents([]cqrs.Event) {
 
 func Example() {
 
-	store := cqrs.NewSqliteEventStore("/tmp/cqrs.db")
-	cqrs.RegisterEventListeners(new(HeardSomething), new(cqrs.NullEventListener))
+	cqrs.UnregisterAll()
+	ClearTestData()
+
+	store := cqrs.NewSqliteEventStore("testdb")
+	count := new(EventCount)
+
+	cqrs.RegisterEventListeners(new(HeardSomething), count)
 	cqrs.RegisterEventStore(store)
 	cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
 
@@ -122,4 +149,23 @@ func Example() {
 	if err != nil {
 		fmt.Println("cqrs: command %v failed: %v", c, err)
 	}
+
+	c = &ShoutSomething{1, ""}
+	err = cqrs.SendCommand(c)
+	if err != nil {
+		fmt.Printf("cqrs: command %+v failed: %v\n", c, err)
+	}
+
+	fmt.Printf("total events = %v\n", count.N)
+
+	// If we don't delete the database, the second time this
+	// test runs the event count is two, as event history 
+	// replays on startup!
+	os.Remove("testdb")
+
+	// Output: 
+	// cqrs: creating schema in testdb
+	// cqrs: command &{Id:1 Comment:} failed: you must shout something
+	// total events = 1
+
 }

@@ -16,26 +16,29 @@
    CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-package cqrs
+package cqrs_test
 
 import (
 	"database/sql"
-	"os"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mbucc/cqrs"
 	. "github.com/smartystreets/goconvey/convey"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestCreateTable(t *testing.T) {
 
+	cqrs.UnregisterAll()
+	ClearTestData()
+
 	Convey("Given a new Sqlite3 event store", t, func() {
 
-		store := NewSqliteEventStore("/tmp/cqrs.db")
-		Convey("Registering an event type creates a table", func() {
-			err := store.SetEventTypes([]Event{&HeardEvent{}})
+		store := cqrs.NewSqliteEventStore(testdb)
+		Convey("cqrs.Registering an event type creates a table", func() {
+			err := store.SetEventTypes([]cqrs.Event{&HeardSomething{}})
 			So(err, ShouldEqual, nil)
-			db, err := sql.Open("sqlite3", "/tmp/cqrs.db")
+			db, err := sql.Open("sqlite3", testdb)
 			So(err, ShouldEqual, nil)
 			defer db.Close()
 
@@ -45,21 +48,21 @@ func TestCreateTable(t *testing.T) {
 			So(err, ShouldEqual, nil)
 			So(count, ShouldEqual, 1)
 		})
-		Reset(func() {
-			os.Remove("/tmp/cqrs.db")
-		})
 	})
 }
 
 func TestCreateTableSqlMatches(t *testing.T) {
 
+	cqrs.UnregisterAll()
+	ClearTestData()
+
 	Convey("Given a new Sqlite3 event store", t, func() {
 
-		store := NewSqliteEventStore("/tmp/cqrs.db")
+		store := cqrs.NewSqliteEventStore(testdb)
 		Convey("That has an event table", func() {
-			err := store.SetEventTypes([]Event{&HeardEvent{}})
+			err := store.SetEventTypes([]cqrs.Event{&HeardSomething{}})
 			So(err, ShouldEqual, nil)
-			db, err := sql.Open("sqlite3", "/tmp/cqrs.db")
+			db, err := sql.Open("sqlite3", testdb)
 			So(err, ShouldEqual, nil)
 			defer db.Close()
 
@@ -69,47 +72,45 @@ func TestCreateTableSqlMatches(t *testing.T) {
 			So(err, ShouldEqual, nil)
 			So(count, ShouldEqual, 1)
 			Convey("Reopening event store should not panic", func() {
-				unregisterAll()
-				store = NewSqliteEventStore("/tmp/cqrs.db")
-				err := store.SetEventTypes([]Event{&HeardEvent{}})
+				cqrs.UnregisterAll()
+				store = cqrs.NewSqliteEventStore(testdb)
+				err := store.SetEventTypes([]cqrs.Event{&HeardSomething{}})
 				So(err, ShouldEqual, nil)
 			})
-		})
-		Reset(func() {
-			os.Remove("/tmp/cqrs.db")
 		})
 	})
 }
 
 func TestPersistence(t *testing.T) {
 
-	unregisterAll()
+	cqrs.UnregisterAll()
+	ClearTestData()
 
 	Convey("Given an event history", t, func() {
 
-		store := NewSqliteEventStore("/tmp/cqrs.db")
-		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-		RegisterEventStore(store)
-		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
+		store := cqrs.NewSqliteEventStore(testdb)
+		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
+		cqrs.RegisterEventStore(store)
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), NullAggregate{})
 
-		So(SendCommand(&ShoutCommand{1, "hello1"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{1, "hello1"}), ShouldEqual, nil)
 
 		events, err := store.GetAllEvents()
 		So(err, ShouldEqual, nil)
 		So(len(events), ShouldEqual, 1)
 
-		So(SendCommand(&ShoutCommand{2, "hello2"}), ShouldEqual, nil)
-		So(SendCommand(&ShoutCommand{2, "hello2a"}), ShouldEqual, nil)
-		So(SendCommand(&ShoutCommand{3, "hello3"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{2, "hello2"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{2, "hello2a"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{3, "hello3"}), ShouldEqual, nil)
 
 		events, err = store.GetAllEvents()
 		So(err, ShouldEqual, nil)
 		So(len(events), ShouldEqual, 4)
 
 		Convey("We should be able to reload history", func() {
-			unregisterAll()
-			RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-			RegisterEventStore(store)
+			cqrs.UnregisterAll()
+			cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
+			cqrs.RegisterEventStore(store)
 			events, err := store.GetAllEvents()
 			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 4)
@@ -121,39 +122,34 @@ func TestPersistence(t *testing.T) {
 				}
 			})
 		})
-		Reset(func() {
-			os.Remove("/tmp/cqrs.db")
-		})
 	})
 }
 
 func TestSqliteStorePersistsOldAndNewEvents(t *testing.T) {
 
-	unregisterAll()
+	cqrs.UnregisterAll()
+	ClearTestData()
 
 	Convey("Given an echo handler and two null listeners", t, func() {
 
-		aggid := AggregateID(1)
+		aggid := cqrs.AggregateID(1)
 		agg := EchoAggregate{aggid}
-		store := NewSqliteEventStore("/tmp/cqrs.db")
-		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-		RegisterEventStore(store)
-		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
+		store := cqrs.NewSqliteEventStore(testdb)
+		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
+		cqrs.RegisterEventStore(store)
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
 
-		Convey("A ShoutCommand should persist old and new events", func() {
-			err := SendCommand(&ShoutCommand{aggid, "hello humanoid1"})
+		Convey("A ShoutSomething should persist old and new events", func() {
+			err := cqrs.SendCommand(&ShoutSomething{aggid, "hello humanoid1"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(agg)
 			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 1)
 
-			err = SendCommand(&ShoutCommand{aggid, "hello humanoid2"})
+			err = cqrs.SendCommand(&ShoutSomething{aggid, "hello humanoid2"})
 			So(err, ShouldEqual, nil)
 			events, err = store.LoadEventsFor(agg)
 			So(len(events), ShouldEqual, 2)
-		})
-		Reset(func() {
-			os.Remove("/tmp/cqrs.db")
 		})
 	})
 }

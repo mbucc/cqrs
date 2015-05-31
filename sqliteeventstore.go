@@ -75,6 +75,7 @@ type SqliteEventStore struct {
 }
 
 func NewSqliteEventStore(datasource string) *SqliteEventStore {
+	UnregisterAll()
 	return &SqliteEventStore{
 		datasource: datasource,
 		eventinfo:  make(map[reflect.Type]eventInfo),
@@ -212,7 +213,7 @@ func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 				panic(fmt.Sprintf(msgfmt, event, dbsql, q.Create))
 			}
 		} else {
-			fmt.Printf("cqrs: creating schema in %s", es.datasource)
+			fmt.Printf("cqrs: creating schema in %s\n", es.datasource)
 			es.db.MustExec(q.Create)
 			es.db.MustExec(q.CreateIndexAggregateId)
 		}

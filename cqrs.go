@@ -214,8 +214,8 @@ type EventStorer interface {
 	GetAllEvents() ([]Event, error)
 }
 
-// For tests.
-func unregisterAll() {
+// So tests can clear registrations stored at package level.
+func UnregisterAll() {
 	commandAggregator = make(map[reflect.Type]Aggregator)
 	eventListeners = make(map[reflect.Type][]EventListener)
 	eventStore = nil

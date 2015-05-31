@@ -1,110 +1,114 @@
 /*
    Copyright (c) 2013, Edument AB
-    Copyright (c) 2015, Mark Bucciarelli <mkbucc@gmail.com>
+   Copyright (c) 2015, Mark Bucciarelli <mkbucc@gmail.com>
 
-    Permission to use, copy, modify, and/or distribute this software
-    for any purpose with or without fee is hereby granted, provided
-    that the above copyright notice and this permission notice
-    appear in all copies.
+   Permission to use, copy, modify, and/or distribute this software
+   for any purpose with or without fee is hereby granted, provided
+   that the above copyright notice and this permission notice
+   appear in all copies.
 
-    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
-    WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
-    WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
-    THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
-    CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-    LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
-    NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
-    CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+   WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+   WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
+   THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
+   CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+   LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+   NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+   CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-package cqrs
+package cqrs_test
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mbucc/cqrs"
+	. "github.com/smartystreets/goconvey/convey"
+)
+
+const (
+	testgobdir = "/tmp"
+	testdb     = "/tmp/testcqrs.db"
 )
 
 var testChannel = make(chan string)
 
-type ShoutCommand struct {
-	Id      AggregateID
-	Comment string
-}
+type NullAggregate struct{ id cqrs.AggregateID }
 
-func (c *ShoutCommand) ID() AggregateID { return c.Id }
-
-type HeardEvent struct {
-	BaseEvent
-	Heard string
-}
-
-func (e *HeardEvent) ID() AggregateID { return e.Id }
-
-type EchoAggregate struct{ id AggregateID }
-
-func (eh EchoAggregate) Handle(c Command) (a []Event, err error) {
-	a = make([]Event, 1)
-	c1 := c.(*ShoutCommand)
-	a[0] = &HeardEvent{BaseEvent: BaseEvent{Id: c1.ID()}, Heard: c1.Comment}
+func (eh NullAggregate) Handle(c cqrs.Command) (a []cqrs.Event, err error) {
+	a = make([]cqrs.Event, 1)
+	c1 := c.(*ShoutSomething)
+	a[0] = &HeardSomething{BaseEvent: cqrs.BaseEvent{Id: c1.ID()}, Heard: c1.Comment}
 	return a, nil
 }
 
-func (eh EchoAggregate) ID() AggregateID               { return eh.id }
-func (eh EchoAggregate) New(id AggregateID) Aggregator { return &EchoAggregate{id} }
-func (eh EchoAggregate) ApplyEvents([]Event)           {}
+func (eh NullAggregate) ID() cqrs.AggregateID                    { return eh.id }
+func (eh NullAggregate) New(id cqrs.AggregateID) cqrs.Aggregator { return &NullAggregate{id} }
+func (eh NullAggregate) ApplyEvents([]cqrs.Event)                {}
 
-type NullAggregate struct{ id AggregateID }
+type SlowDownEchoAggregate struct{ id cqrs.AggregateID }
 
-func (eh NullAggregate) Handle(c Command) (a []Event, err error) {
-	a = make([]Event, 1)
-	c1 := c.(*ShoutCommand)
-	a[0] = &HeardEvent{BaseEvent: BaseEvent{Id: c1.ID()}, Heard: c1.Comment}
-	return a, nil
+func (h SlowDownEchoAggregate) ID() cqrs.AggregateID { return h.id }
+func (eh SlowDownEchoAggregate) New(id cqrs.AggregateID) cqrs.Aggregator {
+	return &SlowDownEchoAggregate{id}
 }
 
-func (eh NullAggregate) ID() AggregateID               { return eh.id }
-func (eh NullAggregate) New(id AggregateID) Aggregator { return &NullAggregate{id} }
-func (eh NullAggregate) ApplyEvents([]Event)           {}
-
-type SlowDownEchoAggregate struct{ id AggregateID }
-
-func (h SlowDownEchoAggregate) ID() AggregateID                { return h.id }
-func (eh SlowDownEchoAggregate) New(id AggregateID) Aggregator { return &SlowDownEchoAggregate{id} }
-
-func (h SlowDownEchoAggregate) Handle(c Command) (a []Event, err error) {
-	a = make([]Event, 1)
-	c1 := c.(*ShoutCommand)
+func (h SlowDownEchoAggregate) Handle(c cqrs.Command) (a []cqrs.Event, err error) {
+	a = make([]cqrs.Event, 1)
+	c1 := c.(*ShoutSomething)
 	if strings.HasPrefix(c1.Comment, "slow") {
 		time.Sleep(250 * time.Millisecond)
 	}
-	a[0] = &HeardEvent{BaseEvent: BaseEvent{Id: c1.ID()}, Heard: c1.Comment}
+	a[0] = &HeardSomething{BaseEvent: cqrs.BaseEvent{Id: c1.ID()}, Heard: c1.Comment}
 	return a, nil
 }
 
-func (h SlowDownEchoAggregate) ApplyEvents([]Event) {}
+func (h SlowDownEchoAggregate) ApplyEvents([]cqrs.Event) {}
 
 type ChannelWriterEventListener struct{}
 
-func (h *ChannelWriterEventListener) Apply(e Event) error {
-	testChannel <- e.(*HeardEvent).Heard
+func (h *ChannelWriterEventListener) Apply(e cqrs.Event) error {
+	testChannel <- e.(*HeardSomething).Heard
 	return nil
 }
 
-func (h *ChannelWriterEventListener) Reapply(e Event) error { return nil }
+func (h *ChannelWriterEventListener) Reapply(e cqrs.Event) error { return nil }
 
 type NullEventListener struct{}
 
-func (h *NullEventListener) Apply(e Event) error   { return nil }
-func (h *NullEventListener) Reapply(e Event) error { return nil }
+func (h *NullEventListener) Apply(e cqrs.Event) error   { return nil }
+func (h *NullEventListener) Reapply(e cqrs.Event) error { return nil }
+
+func ClearTestData() {
+	if _, err := os.Stat(testdb); err == nil {
+		if err := os.Remove(testdb); err != nil {
+			panic(fmt.Sprintf("error removing test database: %v", err))
+		}
+	}
+	files, err := filepath.Glob(testgobdir + "/*.gob")
+	if err != nil {
+		panic(fmt.Sprintf("error globbing gob filenames: %v", err))
+	}
+	for _, f := range files {
+		if err := os.Remove(f); err != nil {
+			panic(fmt.Sprintf("error removing gob file '%s': %v", f, err))
+		}
+	}
+}
 
 func TestHandledCommandReturnsEvents(t *testing.T) {
 
+	cqrs.UnregisterAll()
+	ClearTestData()
+
 	Convey("Given a shout out and a shout out handler", t, func() {
 
-		shout := ShoutCommand{1, "ab"}
+		shout := ShoutSomething{1, "ab"}
 		h := EchoAggregate{}
 
 		Convey("When the shout out is handled", func() {
@@ -121,19 +125,20 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 
 func TestSendCommand(t *testing.T) {
 
-	unregisterAll()
+	cqrs.UnregisterAll()
+	ClearTestData()
 
 	Convey("Given an echo handler and two channel writerlisteners", t, func() {
 
-		RegisterEventListeners(new(HeardEvent),
+		cqrs.RegisterEventListeners(new(HeardSomething),
 			new(ChannelWriterEventListener),
 			new(ChannelWriterEventListener))
-		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
-		RegisterEventStore(new(NullEventStore))
-		Convey("A ShoutCommand should be heard", func() {
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
+		cqrs.RegisterEventStore(new(cqrs.NullEventStore))
+		Convey("A ShoutSomething should be heard", func() {
 			go func() {
-				Convey("SendCommand should succeed", t, func() {
-					err := SendCommand(&ShoutCommand{1, "hello humanoid"})
+				Convey("cqrs.SendCommand should succeed", t, func() {
+					err := cqrs.SendCommand(&ShoutSomething{1, "hello humanoid"})
 					So(err, ShouldEqual, nil)
 				})
 				close(testChannel)
@@ -154,89 +159,86 @@ func TestSendCommand(t *testing.T) {
 
 func TestGobEventStore(t *testing.T) {
 
-	unregisterAll()
+	cqrs.UnregisterAll()
+	ClearTestData()
 
-	aggid := AggregateID(1)
+	aggid := cqrs.AggregateID(1)
 	agg := EchoAggregate{aggid}
-	store := &GobEventStore{RootDir: "/tmp"}
-	RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-	RegisterEventStore(store)
-	RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
+	store := &cqrs.GobEventStore{RootDir: "/tmp"}
+	cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
+	cqrs.RegisterEventStore(store)
+	cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
 
 	Convey("Given an echo handler and two null listeners", t, func() {
 
-		Convey("A ShoutCommand should persist an event", func() {
-			err := SendCommand(&ShoutCommand{aggid, "hello humanoid"})
+		Convey("A ShoutSomething should persist an event", func() {
+			err := cqrs.SendCommand(&ShoutSomething{aggid, "hello humanoid"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(agg)
 			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 1)
-		})
-		Reset(func() {
-			os.Remove(store.FileNameFor(agg))
 		})
 	})
 }
 
 func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 
-	unregisterAll()
+	cqrs.UnregisterAll()
+	ClearTestData()
 
 	Convey("Given an echo handler and two null listeners", t, func() {
 
-		aggid := AggregateID(1)
+		aggid := cqrs.AggregateID(1)
 		agg := EchoAggregate{aggid}
-		store := &GobEventStore{RootDir: "/tmp"}
-		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-		RegisterEventStore(store)
-		RegisterCommandAggregator(new(ShoutCommand), EchoAggregate{})
+		store := &cqrs.GobEventStore{RootDir: "/tmp"}
+		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
+		cqrs.RegisterEventStore(store)
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
 
-		Convey("A ShoutCommand should persist old and new events", func() {
-			err := SendCommand(&ShoutCommand{aggid, "hello humanoid1"})
+		Convey("A ShoutSomething should persist old and new events", func() {
+			err := cqrs.SendCommand(&ShoutSomething{aggid, "hello humanoid1"})
 			So(err, ShouldEqual, nil)
 			events, err := store.LoadEventsFor(agg)
 			So(len(events), ShouldEqual, 1)
 
-			err = SendCommand(&ShoutCommand{aggid, "hello humanoid2"})
+			err = cqrs.SendCommand(&ShoutSomething{aggid, "hello humanoid2"})
 			So(err, ShouldEqual, nil)
 			events, err = store.LoadEventsFor(agg)
 			So(len(events), ShouldEqual, 2)
-		})
-		Reset(func() {
-			os.Remove(store.FileNameFor(agg))
 		})
 	})
 }
 
 func TestReloadHistory(t *testing.T) {
 
-	unregisterAll()
+	cqrs.UnregisterAll()
+	ClearTestData()
 
 	Convey("Given an event history", t, func() {
 
-		store := &GobEventStore{RootDir: "/tmp"}
-		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-		RegisterEventStore(store)
-		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
+		store := &cqrs.GobEventStore{RootDir: "/tmp"}
+		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
+		cqrs.RegisterEventStore(store)
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), NullAggregate{})
 
-		So(SendCommand(&ShoutCommand{1, "hello1"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{1, "hello1"}), ShouldEqual, nil)
 
 		events, err := store.GetAllEvents()
 		So(err, ShouldEqual, nil)
 		So(len(events), ShouldEqual, 1)
 
-		So(SendCommand(&ShoutCommand{2, "hello2"}), ShouldEqual, nil)
-		So(SendCommand(&ShoutCommand{2, "hello2a"}), ShouldEqual, nil)
-		So(SendCommand(&ShoutCommand{3, "hello3"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{2, "hello2"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{2, "hello2a"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{3, "hello3"}), ShouldEqual, nil)
 
 		events, err = store.GetAllEvents()
 		So(err, ShouldEqual, nil)
 		So(len(events), ShouldEqual, 4)
 
 		Convey("We should be able to reload history", func() {
-			unregisterAll()
-			RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-			RegisterEventStore(store)
+			cqrs.UnregisterAll()
+			cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
+			cqrs.RegisterEventStore(store)
 			events, err := store.GetAllEvents()
 			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 4)
@@ -249,40 +251,36 @@ func TestReloadHistory(t *testing.T) {
 			})
 		})
 		Reset(func() {
-			os.Remove(store.FileNameFor(NullAggregate{1}))
-			os.Remove(store.FileNameFor(NullAggregate{1}) + ".tmp")
-			os.Remove(store.FileNameFor(NullAggregate{2}))
-			os.Remove(store.FileNameFor(NullAggregate{2}) + ".tmp")
-			os.Remove(store.FileNameFor(NullAggregate{3}))
-			os.Remove(store.FileNameFor(NullAggregate{3}) + ".tmp")
+			ClearTestData()
 		})
 	})
 }
 
 func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 
-	unregisterAll()
+	cqrs.UnregisterAll()
+	ClearTestData()
 
 	Convey("Given an event history", t, func() {
 
-		store := &GobEventStore{RootDir: "/tmp"}
-		RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-		RegisterEventStore(store)
-		RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
+		store := &cqrs.GobEventStore{RootDir: "/tmp"}
+		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
+		cqrs.RegisterEventStore(store)
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), NullAggregate{})
 
-		So(SendCommand(&ShoutCommand{1, "hello1"}), ShouldEqual, nil)
-		So(SendCommand(&ShoutCommand{2, "hello2"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{1, "hello1"}), ShouldEqual, nil)
+		So(cqrs.SendCommand(&ShoutSomething{2, "hello2"}), ShouldEqual, nil)
 
 		events, err := store.GetAllEvents()
 		So(err, ShouldEqual, nil)
 		So(len(events), ShouldEqual, 2)
 
 		Convey("If we reload history, event sequence number should keep counting where it left off", func() {
-			unregisterAll()
-			RegisterEventListeners(new(HeardEvent), new(NullEventListener))
-			RegisterEventStore(store)
-			RegisterCommandAggregator(new(ShoutCommand), NullAggregate{})
-			So(SendCommand(&ShoutCommand{1, "hello1"}), ShouldEqual, nil)
+			cqrs.UnregisterAll()
+			cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
+			cqrs.RegisterEventStore(store)
+			cqrs.RegisterCommandAggregator(new(ShoutSomething), NullAggregate{})
+			So(cqrs.SendCommand(&ShoutSomething{1, "hello1"}), ShouldEqual, nil)
 			events, err := store.GetAllEvents()
 			So(err, ShouldEqual, nil)
 			So(len(events), ShouldEqual, 3)
@@ -291,12 +289,6 @@ func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 				So(lastId, ShouldBeLessThan, e.GetSequenceNumber())
 				lastId = e.GetSequenceNumber()
 			}
-		})
-		Reset(func() {
-			os.Remove(store.FileNameFor(NullAggregate{1}))
-			os.Remove(store.FileNameFor(NullAggregate{1}) + ".tmp")
-			os.Remove(store.FileNameFor(NullAggregate{2}))
-			os.Remove(store.FileNameFor(NullAggregate{2}) + ".tmp")
 		})
 	})
 }
