@@ -43,8 +43,10 @@ type ShoutSomething struct {
 }
 
 func (c *ShoutSomething) ID() cqrs.AggregateID {
-	// A command has one and only one aggregate,
-	// so we can return the constant here.
+	// A command has one and only one aggregate type.
+	// The aggregate type associated with this command
+	// has only one instance, so we can return the
+	// constant ID here.
 	return HelloWorldAggregateID
 }
 
