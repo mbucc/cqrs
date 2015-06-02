@@ -51,13 +51,13 @@
 //
 //   * a Command has one and only one Aggregator
 //
-//   * Aggregator implementation must be a struct.
+//   * Aggregator implementation must be a struct
 //
 //   * synchronous-only; Commands are processed one-
 //     at-a-time, in the order they are received.
 //
 // From profiling (https://github.com/mbucc/cqrsprof/blob/master/cqrsprof.svg)
-// performance degrades exponentially.  Adding snapshots of Aggregators is 
+// performance degrades exponentially.  Adding snapshots of Aggregators is
 // the obvious way to speed things up.
 //
 package cqrs
@@ -337,15 +337,18 @@ func RegisterEventStore(es EventStorer) {
 	republishEvents()
 }
 
-// Since events represent a thing that actually happened,
-// a fact, having an event listener return an error
-// is probably not the right thing to do.
-// While errors can certainly occur,
-// for example, email server or database is down
-// or the file system is full,
-// a better approach would be to stick the events
-// in a durable queue so when the error condition clears
-// the listener can successfully do it's thing.
+// BUG(mbucc) Don't allow read model errors stop command processing.
+//
+//  * Events represent a thing that actually happened,
+//    a fact, having an event listener return an error
+//    is not the right thing to do.
+//
+//  * Read models are entirely rebuilt when daemon restarts.
+//    So if there is a bug, fix it and restart the daemon.
+//
+//  * For read models with side effects that could fail (like
+//    posting to another web service), they should probably
+//    enqueue the event for later processing.
 func publishEvent(e Event) error {
 	t := reflect.TypeOf(e)
 	e.SetSequenceNumber(atomic.AddUint64(&eventSequenceNumber, 1))

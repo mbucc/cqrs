@@ -26,9 +26,9 @@ import (
 )
 
 // Our toy aggregate only needs the command state
-// to ensure the one business rule is kept,
-// so we only have one instance (ID) of this
-// aggregate for the entire system.
+// to ensure the one business rule is kept, so we
+// only have one instance of this aggregate for
+// the entire system.
 const HelloWorldAggregateID = 0
 
 //---------------------------------------------------------------------------
@@ -62,8 +62,8 @@ type HeardSomething struct {
 }
 
 func (e *HeardSomething) ID() cqrs.AggregateID {
-	// It's possible this event was spawned by some other
-	// comand, so don't use the constant here.
+	// It's possible this event could be fired by another
+	// comand type, so don't use the constant here.
 	return e.Id
 }
 
@@ -73,11 +73,24 @@ func (e *HeardSomething) ID() cqrs.AggregateID {
 //
 //---------------------------------------------------------------------------
 
-type EventCount struct{
-	N	int
+type EventCount struct {
+	N int
 }
 
-func (p *EventCount) Apply(e cqrs.Event) error   {
+func (p *EventCount) Apply(e cqrs.Event) error {
+	//
+	// There is no check for integer overflow here.
+	//
+	// Actually, handling errors in read models is interesting.
+	// The current implementation will stop processing a command
+	// if a read model returns an error wehn Apply'ing an event.
+	//
+	// However, read models are completely rebuilt from the full
+	// event history when the cqrs daemon restarts.  A more robust
+	// design would be to log the error, have a read-model mark
+	// itself as invalid, deploy a fixed model, and restart the
+	// daemon.
+
 	p.N += 1
 	return nil
 }
