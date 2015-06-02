@@ -51,6 +51,8 @@
 //
 //   * a Command has one and only one Aggregator
 //
+//   * Aggregator implementation must be a struct.
+//
 //   * synchronous-only; Commands are processed one-
 //     at-a-time, in the order they are received.
 //
