@@ -29,6 +29,10 @@ import (
 // to ensure the one business rule is kept, so we
 // only have one instance of this aggregate for
 // the entire system.
+//
+// Each aggregate instance must have a unique ID, as
+// that's how we know which events in the history are
+// be applied to which aggregate.
 const HelloWorldAggregateID = 0
 
 //---------------------------------------------------------------------------
@@ -83,7 +87,7 @@ func (p *EventCount) Apply(e cqrs.Event) error {
 	//
 	// Actually, handling errors in read models is interesting.
 	// The current implementation will stop processing a command
-	// if a read model returns an error wehn Apply'ing an event.
+	// if a read model returns an error when Apply'ing an event.
 	//
 	// However, read models are completely rebuilt from the full
 	// event history when the cqrs daemon restarts.  A more robust
@@ -162,13 +166,13 @@ func Example() {
 	cqrs.RegisterEventStore(store)
 	cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
 
-	c := &ShoutSomething{1, "Hello World!"}
+	c := &ShoutSomething{HelloWorldAggregateID, "Hello World!"}
 	err := cqrs.SendCommand(c)
 	if err != nil {
 		fmt.Println("cqrs: command %v failed: %v", c, err)
 	}
 
-	c = &ShoutSomething{1, ""}
+	c = &ShoutSomething{HelloWorldAggregateID, ""}
 	err = cqrs.SendCommand(c)
 	if err != nil {
 		fmt.Printf("cqrs: command %+v failed: %v\n", c, err)
@@ -178,6 +182,6 @@ func Example() {
 
 	// Output:
 	// cqrs: creating schema in /tmp/testcqrs.db
-	// cqrs: command &{Id:1 Comment:} failed: you must shout something
+	// cqrs: command &{Id:0 Comment:} failed: you must shout something
 	// total events = 1
 }
