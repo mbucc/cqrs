@@ -315,7 +315,7 @@ func (es *SqliteEventStore) SaveEventsFor(agg Aggregator, loaded []Event, result
 		q := info.queries.Insert
 		_, err := es.db.NamedExec(q, event)
 		if err != nil {
-			panic(fmt.Sprintf("cqrs: insert sql failed (%s) with event %v", q, event))
+			panic(fmt.Sprintf("cqrs: insert sql failed (%s) with event %+v: %v", q, event, err))
 		}
 	}
 	return nil
