@@ -181,7 +181,7 @@ func Example() {
 	fmt.Printf("total events = %v\n", count.N)
 
 	// Output:
-	// cqrs: creating schema in /tmp/testcqrs.db
+	// cqrs: creating table for *cqrs_test.HeardSomething in /tmp/testcqrs.db
 	// cqrs: command &{Id:0 Comment:} failed: you must shout something
 	// total events = 1
 }

@@ -213,7 +213,7 @@ func (es *SqliteEventStore) SetEventTypes(events []Event) error {
 				panic(fmt.Sprintf(msgfmt, event, dbsql, q.Create))
 			}
 		} else {
-			fmt.Printf("cqrs: creating schema in %s\n", es.datasource)
+			fmt.Printf("cqrs: creating table for %T in %s\n", event, es.datasource)
 			es.db.MustExec(q.Create)
 			es.db.MustExec(q.CreateIndexAggregateId)
 		}
