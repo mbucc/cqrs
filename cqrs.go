@@ -91,7 +91,7 @@ var eventSequenceNumber uint64 = 0
 // The noun (Aggregator) is PokerGame and
 // each game has a different id (AggregateID).
 //
-type AggregateID uint32
+type AggregateID uint64
 
 // A Command is an action
 // that can be accepted or rejected.
@@ -159,13 +159,19 @@ type CommandHandler interface {
 }
 
 // An Event is something that happened
-// as a result of a Command;
-// for example, FaceSlapped.
+// as a result of a Command.  It is a fact
+// and is written in the past tense.
 type Event interface {
 	ID() AggregateID
-	// See BaseEvent for notes on event sequence number.
+
+	// When an event is published, it is given a unique sequence number.
 	SetSequenceNumber(uint64)
 	GetSequenceNumber() uint64
+
+	// It's useful to be able to use an event sequence number
+	// as an entity ID.  This method casts the event's sequence
+	// number to an AggregateID.
+	GetSequenceNumberAsAggregateID() AggregateID
 }
 
 // A BaseEvent provides the minimum fields
@@ -190,6 +196,9 @@ type BaseEvent struct {
 func (e *BaseEvent) GetSequenceNumber() uint64  { return e.SequenceNumber }
 func (e *BaseEvent) SetSequenceNumber(n uint64) { e.SequenceNumber = n }
 func (e *BaseEvent) ID() AggregateID            { return e.Id }
+func (e *BaseEvent) GetSequenceNumberAsAggregateID() AggregateID  {
+	return AggregateID(e.SequenceNumber) 
+}
 
 type BySequenceNumber []Event
 
