@@ -229,6 +229,7 @@ type EventStorer interface {
 func UnregisterAll() {
 	commandAggregator = make(map[reflect.Type]Aggregator)
 	eventListeners = make(map[reflect.Type][]EventListener)
+	registeredEvents = nil
 	eventStore = nil
 	eventSequenceNumber = 0
 }
