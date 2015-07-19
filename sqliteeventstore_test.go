@@ -91,7 +91,7 @@ func TestPersistence(t *testing.T) {
 		store := cqrs.NewSqliteEventStore(testdb)
 		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
 		cqrs.RegisterEventStore(store)
-		cqrs.RegisterCommandAggregator(new(ShoutSomething), NullAggregate{})
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), &NullAggregate{})
 
 		So(cqrs.SendCommand(&ShoutSomething{1, "hello1"}), ShouldEqual, nil)
 

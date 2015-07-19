@@ -40,25 +40,25 @@ var testChannel = make(chan string)
 
 type NullAggregate struct{ id cqrs.AggregateID }
 
-func (eh NullAggregate) Handle(c cqrs.Command) (a []cqrs.Event, err error) {
+func (h *NullAggregate) Handle(c cqrs.Command) (a []cqrs.Event, err error) {
 	a = make([]cqrs.Event, 1)
 	c1 := c.(*ShoutSomething)
 	a[0] = &HeardSomething{BaseEvent: cqrs.BaseEvent{Id: c1.ID()}, Heard: c1.Comment}
 	return a, nil
 }
 
-func (eh NullAggregate) ID() cqrs.AggregateID                    { return eh.id }
-func (eh NullAggregate) New(id cqrs.AggregateID) cqrs.Aggregator { return &NullAggregate{id} }
-func (eh NullAggregate) ApplyEvents([]cqrs.Event)                {}
+func (h *NullAggregate) ID() cqrs.AggregateID                    { return h.id }
+func (h *NullAggregate) New(id cqrs.AggregateID) cqrs.Aggregator { return &NullAggregate{id} }
+func (h *NullAggregate) ApplyEvents([]cqrs.Event)                {}
 
 type SlowDownEchoAggregate struct{ id cqrs.AggregateID }
 
-func (h SlowDownEchoAggregate) ID() cqrs.AggregateID { return h.id }
-func (eh SlowDownEchoAggregate) New(id cqrs.AggregateID) cqrs.Aggregator {
+func (h *SlowDownEchoAggregate) ID() cqrs.AggregateID { return h.id }
+func (h *SlowDownEchoAggregate) New(id cqrs.AggregateID) cqrs.Aggregator {
 	return &SlowDownEchoAggregate{id}
 }
 
-func (h SlowDownEchoAggregate) Handle(c cqrs.Command) (a []cqrs.Event, err error) {
+func (h *SlowDownEchoAggregate) Handle(c cqrs.Command) (a []cqrs.Event, err error) {
 	a = make([]cqrs.Event, 1)
 	c1 := c.(*ShoutSomething)
 	if strings.HasPrefix(c1.Comment, "slow") {
@@ -68,7 +68,7 @@ func (h SlowDownEchoAggregate) Handle(c cqrs.Command) (a []cqrs.Event, err error
 	return a, nil
 }
 
-func (h SlowDownEchoAggregate) ApplyEvents([]cqrs.Event) {}
+func (h *SlowDownEchoAggregate) ApplyEvents([]cqrs.Event) {}
 
 type ChannelWriterEventListener struct{}
 
@@ -109,7 +109,7 @@ func TestHandledCommandReturnsEvents(t *testing.T) {
 	Convey("Given a shout out and a shout out handler", t, func() {
 
 		shout := ShoutSomething{1, "ab"}
-		h := EchoAggregate{}
+		h := &EchoAggregate{}
 
 		Convey("When the shout out is handled", func() {
 
@@ -219,7 +219,7 @@ func TestReloadHistory(t *testing.T) {
 		store := &cqrs.GobEventStore{RootDir: "/tmp"}
 		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
 		cqrs.RegisterEventStore(store)
-		cqrs.RegisterCommandAggregator(new(ShoutSomething), NullAggregate{})
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), &NullAggregate{})
 
 		So(cqrs.SendCommand(&ShoutSomething{1, "hello1"}), ShouldEqual, nil)
 
@@ -266,7 +266,7 @@ func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 		store := &cqrs.GobEventStore{RootDir: "/tmp"}
 		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
 		cqrs.RegisterEventStore(store)
-		cqrs.RegisterCommandAggregator(new(ShoutSomething), NullAggregate{})
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), &NullAggregate{})
 
 		So(cqrs.SendCommand(&ShoutSomething{1, "hello1"}), ShouldEqual, nil)
 		So(cqrs.SendCommand(&ShoutSomething{2, "hello2"}), ShouldEqual, nil)
@@ -279,7 +279,7 @@ func TestSequenceNumberCorrectAfterReload(t *testing.T) {
 			cqrs.UnregisterAll()
 			cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
 			cqrs.RegisterEventStore(store)
-			cqrs.RegisterCommandAggregator(new(ShoutSomething), NullAggregate{})
+			cqrs.RegisterCommandAggregator(new(ShoutSomething), &NullAggregate{})
 			So(cqrs.SendCommand(&ShoutSomething{1, "hello1"}), ShouldEqual, nil)
 			events, err := store.GetAllEvents()
 			So(err, ShouldEqual, nil)
