@@ -243,15 +243,7 @@ func RegisterCommandAggregator(c Command, a Aggregator) {
 	if c == nil {
 		panic("cqrs: can't register an Aggregator to a nil Command")
 	}
-	atype := reflect.TypeOf(a)
 
-	// The Aggregator must be a struct
-	// so that we can instantiate it
-	// in a way that we get to access
-	// it's members in a panic-free way.
-	if atype.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("cqrs: %v is a %v, not a struct", atype, atype.Kind()))
-	}
 	t := reflect.TypeOf(c)
 	if _, dup := commandAggregator[t]; dup {
 		panic(fmt.Sprintf("cqrs: RegisterCommandAggregator called twice for command type %v", t))

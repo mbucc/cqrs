@@ -133,7 +133,7 @@ func TestSendCommand(t *testing.T) {
 		cqrs.RegisterEventListeners(new(HeardSomething),
 			new(ChannelWriterEventListener),
 			new(ChannelWriterEventListener))
-		cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), &EchoAggregate{})
 		cqrs.RegisterEventStore(new(cqrs.NullEventStore))
 		Convey("A ShoutSomething should be heard", func() {
 			go func() {
@@ -163,11 +163,11 @@ func TestGobEventStore(t *testing.T) {
 	ClearTestData()
 
 	aggid := cqrs.AggregateID(1)
-	agg := EchoAggregate{aggid}
+	agg := &EchoAggregate{aggid}
 	store := &cqrs.GobEventStore{RootDir: "/tmp"}
 	cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
 	cqrs.RegisterEventStore(store)
-	cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
+	cqrs.RegisterCommandAggregator(new(ShoutSomething), &EchoAggregate{})
 
 	Convey("Given an echo handler and two null listeners", t, func() {
 
@@ -189,11 +189,11 @@ func TestFileStorePersistsOldAndNewEvents(t *testing.T) {
 	Convey("Given an echo handler and two null listeners", t, func() {
 
 		aggid := cqrs.AggregateID(1)
-		agg := EchoAggregate{aggid}
+		agg := &EchoAggregate{aggid}
 		store := &cqrs.GobEventStore{RootDir: "/tmp"}
 		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
 		cqrs.RegisterEventStore(store)
-		cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), &EchoAggregate{})
 
 		Convey("A ShoutSomething should persist old and new events", func() {
 			err := cqrs.SendCommand(&ShoutSomething{aggid, "hello humanoid1"})

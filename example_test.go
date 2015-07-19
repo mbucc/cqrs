@@ -117,7 +117,7 @@ func (p *EventCount) Reapply(e cqrs.Event) error {
 
 type EchoAggregate struct{ id cqrs.AggregateID }
 
-func (eh EchoAggregate) Handle(c cqrs.Command) (events []cqrs.Event, err error) {
+func (eh *EchoAggregate) Handle(c cqrs.Command) (events []cqrs.Event, err error) {
 	events = make([]cqrs.Event, 1)
 	c1, ok := c.(*ShoutSomething)
 	if !ok {
@@ -132,15 +132,15 @@ func (eh EchoAggregate) Handle(c cqrs.Command) (events []cqrs.Event, err error) 
 	return events, nil
 }
 
-func (eh EchoAggregate) ID() cqrs.AggregateID {
+func (eh *EchoAggregate) ID() cqrs.AggregateID {
 	return HelloWorldAggregateID
 }
 
-func (eh EchoAggregate) New(id cqrs.AggregateID) cqrs.Aggregator {
+func (eh *EchoAggregate) New(id cqrs.AggregateID) cqrs.Aggregator {
 	return &EchoAggregate{HelloWorldAggregateID}
 }
 
-func (eh EchoAggregate) ApplyEvents([]cqrs.Event) {
+func (eh *EchoAggregate) ApplyEvents([]cqrs.Event) {
 	// There is no state this aggregate needs to maintain,
 	// so this method is empty.
 	//
@@ -164,7 +164,7 @@ func Example() {
 
 	cqrs.RegisterEventListeners(new(HeardSomething), count)
 	cqrs.RegisterEventStore(store)
-	cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
+	cqrs.RegisterCommandAggregator(new(ShoutSomething), &EchoAggregate{})
 
 	c := &ShoutSomething{HelloWorldAggregateID, "Hello World!"}
 	err := cqrs.SendCommand(c)

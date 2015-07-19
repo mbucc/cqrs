@@ -133,11 +133,11 @@ func TestSqliteStorePersistsOldAndNewEvents(t *testing.T) {
 	Convey("Given an echo handler and two null listeners", t, func() {
 
 		aggid := cqrs.AggregateID(1)
-		agg := EchoAggregate{aggid}
+		agg := &EchoAggregate{aggid}
 		store := cqrs.NewSqliteEventStore(testdb)
 		cqrs.RegisterEventListeners(new(HeardSomething), new(NullEventListener))
 		cqrs.RegisterEventStore(store)
-		cqrs.RegisterCommandAggregator(new(ShoutSomething), EchoAggregate{})
+		cqrs.RegisterCommandAggregator(new(ShoutSomething), &EchoAggregate{})
 
 		Convey("A ShoutSomething should persist old and new events", func() {
 			err := cqrs.SendCommand(&ShoutSomething{aggid, "hello humanoid1"})
